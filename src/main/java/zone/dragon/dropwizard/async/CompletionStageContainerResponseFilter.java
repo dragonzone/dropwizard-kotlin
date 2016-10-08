@@ -23,9 +23,7 @@ import java.util.concurrent.CompletionStage;
 @Priority(Integer.MAX_VALUE)
 public class CompletionStageContainerResponseFilter implements ContainerResponseFilter {
     @Override
-    public void filter(
-        ContainerRequestContext requestContext, ContainerResponseContext responseContext
-    ) throws IOException {
+    public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) throws IOException {
         if (!responseContext.hasEntity() || !(responseContext.getEntityType() instanceof ParameterizedType)) {
             return;
         }
@@ -33,6 +31,7 @@ public class CompletionStageContainerResponseFilter implements ContainerResponse
         if (!CompletionStage.class.isAssignableFrom((Class<?>) entityType.getRawType())) {
             return;
         }
+        // Interface doesn't support changing of the entity type, so check for the jersey implementation
         if (!(responseContext instanceof ContainerResponse)) {
             log.warn("response context wasn't a ContainerResponse");
             return;

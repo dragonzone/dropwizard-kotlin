@@ -4,12 +4,12 @@ import com.google.common.collect.ImmutableList;
 import org.aopalliance.intercept.ConstructorInterceptor;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
-import org.glassfish.hk2.api.Descriptor;
 import org.glassfish.hk2.api.Filter;
 import org.glassfish.hk2.api.InterceptionService;
 import org.glassfish.jersey.server.internal.JerseyResourceContext;
 import org.glassfish.jersey.server.internal.process.AsyncContext;
 import org.glassfish.jersey.server.model.Resource;
+import org.glassfish.jersey.server.model.ResourceMethod;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -66,12 +66,12 @@ public class CompletionStageInterceptionService implements InterceptionService {
 
     @Override
     public Filter getDescriptorFilter() {
-        return this::isJerseyResource;
+        return descriptor -> true;
     }
 
     @Override
     public List<MethodInterceptor> getMethodInterceptors(Method method) {
-        if (CompletionStage.class.isAssignableFrom(method.getReturnType())) {
+        if (CompletionStage.class.isAssignableFrom(method.getReturnType()) && isResourceMethod(method)) {
             return interceptor;
         }
         return null;
@@ -82,15 +82,30 @@ public class CompletionStageInterceptionService implements InterceptionService {
         return null;
     }
 
-    private boolean isJerseyResource(Descriptor descriptor) {
+    private boolean isResourceMethod(Method method) {
         if (context.getResourceModel() == null) {
             return false;
         }
         for (Resource resource : context.getResourceModel().getResources()) {
-            for (Class<?> clazz : resource.getHandlerClasses()) {
-                if (descriptor.getImplementation().equals(clazz.getCanonicalName())) {
-                    return true;
-                }
+            if (isResourceMethod(method, resource)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isResourceMethod(Method method, Resource resource) {
+        for (ResourceMethod resourceMethod : resource.getResourceMethods()) {
+            if (resourceMethod.getInvocable().getDefinitionMethod().equals(method) || resourceMethod
+                .getInvocable()
+                .getHandlingMethod()
+                .equals(method)) {
+                return true;
+            }
+        }
+        for (Resource childResource : resource.getChildResources()) {
+            if (isResourceMethod(method, childResource)) {
+                return true;
             }
         }
         return false;
