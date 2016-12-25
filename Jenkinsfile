@@ -20,7 +20,7 @@ node("docker") {
     }
     
     buildEnv.inside {
-        withMaven(localRepo: ".m2/repository", globalMavenSettingsConfig: "maven-dragonZone", mavenSettingsFilePath: ".m2/settings.xml") {
+        withMaven(localRepo: ".m2/repository", globalMavenSettingsConfig: "maven-dragonZone") {
             // Download source and dependencies
             stage("Checkout & Validate Project") {
                 checkout scm
