@@ -28,7 +28,7 @@ node("docker") {
             }
     
             // Set Build Information
-            def pom = readMavenPom("pom.xml")
+            def pom = readMavenPom(file: "pom.xml")
             def name = pom.artifactId
             def version = pom.version.replace("-SNAPSHOT",".${env.BUILD_NUMBER}")
             currentBuild.displayName = "${name}-${version}"    
