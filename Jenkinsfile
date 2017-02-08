@@ -8,9 +8,11 @@ def deployableBranchRegex = "master"
 // Maven Config
 def mavenArgs = "-B -U -Dci=true"
 def mavenValidateProjectGoals = "clean initialize"
-def mavenNonDeployGoals = "verify gpg:sign"
-def mavenDeployGoals = "install gpg:sign deploy:deploy nexus-staging:deploy -DskipRemoteStaging=true -DdeployAtEnd=true -DupdateReleaseInfo=true"
-def requireTests = false
+def mavenNonDeployArgs = "-P sign"
+def mavenNonDeployGoals = "verify"
+def mavenDeployArgs = "-P sign,maven-central -DdeployAtEnd=true"
+def mavenDeployGoals = "deploy nexus-staging:deploy"
+def requireTests = true
 def globalMavenSettingsConfig = "maven-dragonZone"
 
 // Exit if we shouldn't be building
@@ -74,7 +76,7 @@ node("docker") {
                 stage("Build Project") {
                     try {
                         withCredentials([string(credentialsId: 'gpg-keyname', variable: 'GPG_KEYNAME'), file(credentialsId: 'gpg-secring', variable: 'GPG_SECRING'), file(credentialsId: 'gpg-pubring', variable: 'GPG_PUBRING')]) {
-                            sh "mvn ${mavenArgs} release:perform -DlocalCheckout=true -Dgoals=\"${isDeployableBranch ? mavenDeployGoals : mavenNonDeployGoals}\" -Darguments=\"${mavenArgs} -Dgpg.defaultKeyring=false -Dgpg.keyname=$GPG_KEYNAME -Dgpg.publicKeyring=$GPG_PUBRING -Dgpg.secretKeyring=$GPG_SECRING\""
+                            sh "mvn ${mavenArgs} release:perform -DlocalCheckout=true -Dgoals=\"${isDeployableBranch ? mavenDeployGoals : mavenNonDeployGoals}\" -Darguments=\"${mavenArgs} ${isDeployableBranch ? mavenDeployArgs : mavenNonDeployArgs} -Dgpg.defaultKeyring=false -Dgpg.keyname=$GPG_KEYNAME -Dgpg.publicKeyring=$GPG_PUBRING -Dgpg.secretKeyring=$GPG_SECRING\""
                         }
                         archiveArtifacts 'target/checkout/**/pom.xml'
 
@@ -97,13 +99,13 @@ node("docker") {
                 if (isDeployableBranch) {
                     stage("Stage to Maven Central") {
                         try {
-                            sh "cd target/checkout && mvn ${mavenArgs} nexus-staging:deploy-staged"
+                            sh "cd target/checkout && mvn ${mavenArgs} -P maven-central nexus-staging:deploy-staged"
 
                             input message: 'Publish to Central?', ok: 'Publish'
 
-                            sh "cd target/checkout && mvn ${mavenArgs} nexus-staging:release"
+                            sh "cd target/checkout && mvn ${mavenArgs} -P maven-central nexus-staging:release"
                         } catch (err) {
-                            sh "cd target/checkout && mvn ${mavenArgs} nexus-staging:drop"
+                            sh "cd target/checkout && mvn ${mavenArgs} -P maven-central nexus-staging:drop"
                             throw err
                         }
                     }
