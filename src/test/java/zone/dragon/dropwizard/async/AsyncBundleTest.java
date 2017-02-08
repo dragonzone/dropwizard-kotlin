@@ -64,9 +64,6 @@ public class AsyncBundleTest {
     public void test() throws InterruptedException, ExecutionException, TimeoutException {
         long startTime = System.currentTimeMillis();
         log.info(RULE.baseUri().toASCIIString());
-        /*synchronized (this) {
-            wait();
-        }*/
         final CompletableFuture[] promises = new CompletableFuture[100];
         for (int i = 0; i < 100; i++) {
             CompletableFuture promise = promises[i] = new CompletableFuture();
@@ -77,7 +74,7 @@ public class AsyncBundleTest {
                 promise.complete(new Object());
             }).start();
         }
-        CompletableFuture.allOf(promises).get(5000, TimeUnit.MILLISECONDS);
-        assertTrue(System.currentTimeMillis() - startTime < 6000);
+        CompletableFuture.allOf(promises).get(10000, TimeUnit.MILLISECONDS);
+        assertTrue(System.currentTimeMillis() - startTime < 10000);
     }
 }
