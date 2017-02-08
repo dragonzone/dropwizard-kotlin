@@ -16,7 +16,6 @@ import java.util.concurrent.CompletionStage;
  * Filter that replaces the {@code CompletionStage<T>} entity type with just {@code T} to match the return type of the resource.
  *
  * @author Bryan Harclerode
- * @date 10/5/2016
  */
 @Slf4j
 @Singleton

@@ -11,7 +11,6 @@ import java.util.concurrent.CompletionStage;
  * Configures DropWizard to support returning {@link CompletionStage} and {@link CompletableFuture} from resource methods
  *
  * @author Bryan Harclerode
- * @date 9/23/2016
  */
 public class CompletionStageBundle implements Bundle {
     @Override

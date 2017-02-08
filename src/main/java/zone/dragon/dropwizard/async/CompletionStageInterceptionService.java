@@ -1,6 +1,8 @@
 package zone.dragon.dropwizard.async;
 
 import com.google.common.collect.ImmutableList;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import org.aopalliance.intercept.ConstructorInterceptor;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
@@ -25,19 +27,16 @@ import java.util.concurrent.CompletionStage;
  * {@code CompletionStage} settles
  *
  * @author Bryan Harclerode
- * @date 10/5/2016
  */
 @Singleton
 public class CompletionStageInterceptionService implements InterceptionService {
     /**
      * Interceptor used to resume an asynchronous response after the {@link CompletionStage} returned by the resource method has settled
      */
+    @RequiredArgsConstructor
     private static class CompletionStageMethodInterceptor implements MethodInterceptor {
+        @NonNull
         private final Provider<AsyncContext> asyncResponseProvider;
-
-        public CompletionStageMethodInterceptor(Provider<AsyncContext> asyncResponseProvider) {
-            this.asyncResponseProvider = asyncResponseProvider;
-        }
 
         @Override
         public Object invoke(MethodInvocation invocation) throws Throwable {

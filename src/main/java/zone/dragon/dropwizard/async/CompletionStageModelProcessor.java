@@ -18,7 +18,6 @@ import java.util.concurrent.TimeUnit;
  * Model Processor to alter resource methods to run {@link Suspended} if they return a {@link CompletionStage} or {@link CompletableFuture}
  *
  * @author Bryan Harclerode
- * @date 10/5/2016
  */
 @Slf4j
 @Singleton

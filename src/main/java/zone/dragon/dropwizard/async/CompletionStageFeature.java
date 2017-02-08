@@ -13,7 +13,6 @@ import java.util.concurrent.CompletionStage;
  * Jersey {@link Feature} that enables support for resources that return {@link CompletionStage} or {@link CompletableFuture}
  *
  * @author Bryan Harclerode
- * @date 10/5/2016
  */
 public class CompletionStageFeature implements Feature {
     @Override
