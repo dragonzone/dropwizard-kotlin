@@ -14,6 +14,26 @@
     <artifactId>dropwizard-async</artifactId>
     <version>1.0-SNAPSHOT</version>
 
+    <name>Async Support for Dropwizard</name>
+    <description>
+        Enables the use of CompletionStage and CompletableFuture as return types from resource methods
+    </description>
+    <url>https://code.dragon.zone/dragonzone/dropwizard-async</url>
+
+    <scm>
+        <connection>scm:git:http://code.dragon.zone/dragonzone/dropwizard-async.git</connection>
+        <developerConnection>scm:git:ssh://git@code.dragon.zone:dragonzone/dropwizard-async.git</developerConnection>
+        <url>https://code.dragon.zone/dragonzone/dropwizard-async/tree/master</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://code.dragon.zone/dragonzone/dropwizard-async/blob/master/LICENSE</url>
+        </license>
+    </licenses>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -22,7 +42,8 @@
                 <version>1.0.5</version>
                 <type>pom</type>
                 <scope>import</scope>
-            </dependency></dependencies>
+            </dependency>
+        </dependencies>
     </dependencyManagement>
 
     <dependencies>
