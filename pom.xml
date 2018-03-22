@@ -7,30 +7,30 @@
     <parent>
         <groupId>zone.dragon</groupId>
         <artifactId>base-java-pom</artifactId>
-        <version>1.0.42-c78f88</version>
+        <version>1.1.4-c1d255</version>
     </parent>
 
     <groupId>zone.dragon.dropwizard</groupId>
     <artifactId>dropwizard-async</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1-SNAPSHOT</version>
 
-    <name>Async Support for Dropwizard</name>
+    <name>Dropwizard :: Async Support</name>
     <description>
-        Enables the use of CompletionStage and CompletableFuture as return types from resource methods
+        Enables the use of CompletableFuture and ListenableFuture as return types from resource methods
     </description>
-    <url>https://code.dragon.zone/dragonzone/dropwizard-async</url>
+    <url>https://github.com/dragonzone/dropwizard-async</url>
 
     <scm>
-        <connection>scm:git:http://code.dragon.zone/dragonzone/dropwizard-async.git</connection>
-        <developerConnection>scm:git:ssh://git@code.dragon.zone:dragonzone/dropwizard-async.git</developerConnection>
-        <url>https://code.dragon.zone/dragonzone/dropwizard-async/tree/master</url>
+        <connection>scm:git:http://github.com/dragonzone/dropwizard-async.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com:dragonzone/dropwizard-async.git</developerConnection>
+        <url>https://github.com/dragonzone/dropwizard-async/tree/master</url>
         <tag>HEAD</tag>
     </scm>
 
     <licenses>
         <license>
             <name>MIT License</name>
-            <url>https://code.dragon.zone/dragonzone/dropwizard-async/blob/master/LICENSE</url>
+            <url>https://github.com/dragonzone/dropwizard-async/blob/master/LICENSE</url>
         </license>
     </licenses>
 
@@ -39,7 +39,7 @@
             <dependency>
                 <groupId>io.dropwizard</groupId>
                 <artifactId>dropwizard-bom</artifactId>
-                <version>1.0.5</version>
+                <version>1.1.7</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -66,11 +66,13 @@
         <dependency>
             <groupId>io.dropwizard</groupId>
             <artifactId>dropwizard-testing</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-client</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
