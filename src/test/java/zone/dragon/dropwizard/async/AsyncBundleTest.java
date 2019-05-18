@@ -16,27 +16,29 @@ import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.Result;
 import org.glassfish.hk2.api.TypeLiteral;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
-import io.dropwizard.testing.junit.DropwizardClientRule;
+import io.dropwizard.testing.junit5.DropwizardClientExtension;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import lombok.extern.slf4j.Slf4j;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
+@ExtendWith(DropwizardExtensionsSupport.class)
 public class AsyncBundleTest {
 
     /**
      * How many concurrent connections to test; Should be more than 2048 since that's the maximum number of connections Dropwizard's default
      * configuration can accept before it must start rejecting connections.
      */
-    public static final int MAX_CONCURRENT = 5000;
+    public static final int MAX_CONCURRENT = 3000;
 
     @Path("test")
     @Slf4j
@@ -52,6 +54,9 @@ public class AsyncBundleTest {
         @GET
         public CompletionStage<Response> getCompletionStage() {
             int activeRequests = this.activeRequests.incrementAndGet();
+            if (activeRequests % 100 == 0) {
+                log.info("Reached {} active requests", activeRequests);
+            }
             if (activeRequests == MAX_CONCURRENT) {
                 responseTrigger.complete(null);
             }
@@ -84,8 +89,7 @@ public class AsyncBundleTest {
         }
     }
 
-    @Rule
-    public final DropwizardClientRule dropwizard = new DropwizardClientRule(
+    public final DropwizardClientExtension dropwizard = new DropwizardClientExtension(
         AsyncFeature.class,
         TestResource.class,
         new AbstractBinder() {
@@ -98,14 +102,16 @@ public class AsyncBundleTest {
     );
     private HttpClient client;
 
-    @Before
+    @BeforeEach
     public void setup() throws Exception {
         client = new HttpClient();
         client.setMaxConnectionsPerDestination(10000);
         client.start();
+
+
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception {
         client.stop();
     }
