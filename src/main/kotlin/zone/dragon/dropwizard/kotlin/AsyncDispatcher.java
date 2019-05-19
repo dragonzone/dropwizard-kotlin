@@ -15,7 +15,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package zone.dragon.dropwizard.async;
+package zone.dragon.dropwizard.kotlin;
 
 import java.lang.reflect.InvocationHandler;
 import java.util.List;
@@ -29,7 +29,7 @@ import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.internal.inject.ConfiguredValidator;
 import org.glassfish.jersey.server.model.Invocable;
-import org.glassfish.jersey.server.model.internal.AbstractMethodParamInvoker;
+import org.glassfish.jersey.server.model.internal.KotlinAbstractMethodParamInvoker;
 import org.glassfish.jersey.server.spi.internal.ParamValueFactoryWithSource;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -37,14 +37,18 @@ import com.google.common.util.concurrent.MoreExecutors;
 
 
 /**
+ * Invoker that handles asynchronous, suspended methods; This invoker calls the resource method with the normal array of parameters, and
+ * expects it to return a {@link CompletionStage} or {@link ListenableFuture}. Upon resolution, it will resume the {@link AsyncResponse}.
+ * The resource method should be marked as suspended in the Jersey model.
+ *
  * @author Bryan Harclerode
  * @date 5/18/2019
  */
-public class AsyncInvoker extends AbstractMethodParamInvoker {
+public class AsyncDispatcher extends KotlinAbstractMethodParamInvoker {
 
     private final javax.inject.Provider<AsyncResponse> responseProvider;
 
-    public AsyncInvoker(
+    public AsyncDispatcher(
         Invocable resourceMethod,
         InvocationHandler handler,
         List<ParamValueFactoryWithSource<?>> valueProviders,
@@ -63,23 +67,24 @@ public class AsyncInvoker extends AbstractMethodParamInvoker {
 
 
     protected void continueAsyncDispatch(Object continuation, AsyncResponse callback) {
-        if (continuation instanceof CompletionStage){
-            ((CompletionStage<?>)continuation).whenComplete((
-                response, error) -> {
+        if (continuation instanceof CompletionStage) {
+            ((CompletionStage<?>) continuation).whenComplete((
+                response, error
+            ) -> {
                 if (error != null) {
                     callback.resume(error);
                 } else {
                     callback.resume(response);
                 }
             });
-        } else if (continuation instanceof ListenableFuture){
-            ((ListenableFuture<?>)continuation).addListener(() -> {
+        } else if (continuation instanceof ListenableFuture) {
+            ((ListenableFuture<?>) continuation).addListener(() -> {
                 if (((ListenableFuture<?>) continuation).isDone()) {
                     try {
                         callback.resume(((ListenableFuture<?>) continuation).get());
-                    } catch (ExecutionException error){
+                    } catch (ExecutionException error) {
                         callback.resume(error.getCause());
-                    } catch(Throwable error){
+                    } catch (Throwable error) {
                         callback.resume(error);
                     }
                 } else if (((ListenableFuture<?>) continuation).isCancelled()) {
@@ -88,19 +93,19 @@ public class AsyncInvoker extends AbstractMethodParamInvoker {
             }, MoreExecutors.directExecutor());
         } else if (continuation instanceof jersey.repackaged.com.google.common.util.concurrent.ListenableFuture) {
             ((jersey.repackaged.com.google.common.util.concurrent.ListenableFuture<?>) continuation).addListener(() -> {
-            if (((jersey.repackaged.com.google.common.util.concurrent.ListenableFuture<?>) continuation).isDone()) {
-                try {
-                    callback.resume(((jersey.repackaged.com.google.common.util.concurrent.ListenableFuture<?>) continuation).get());
-                } catch (ExecutionException error) {
-                    callback.resume(error.getCause());
-                } catch (Throwable error) {
-                    callback.resume(error);
+                if (((jersey.repackaged.com.google.common.util.concurrent.ListenableFuture<?>) continuation).isDone()) {
+                    try {
+                        callback.resume(((jersey.repackaged.com.google.common.util.concurrent.ListenableFuture<?>) continuation).get());
+                    } catch (ExecutionException error) {
+                        callback.resume(error.getCause());
+                    } catch (Throwable error) {
+                        callback.resume(error);
+                    }
+                } else if (((jersey.repackaged.com.google.common.util.concurrent.ListenableFuture<?>) continuation).isCancelled()) {
+                    callback.cancel();
                 }
-            } else if (((jersey.repackaged.com.google.common.util.concurrent.ListenableFuture<?>) continuation).isCancelled()) {
-                callback.cancel();
-            }
-        },MoreExecutors.directExecutor());
-        } else{
+            }, MoreExecutors.directExecutor());
+        } else {
             callback.resume(continuation);
         }
     }

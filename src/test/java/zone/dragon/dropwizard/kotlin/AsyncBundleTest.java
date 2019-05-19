@@ -1,4 +1,4 @@
-package zone.dragon.dropwizard.async;
+package zone.dragon.dropwizard.kotlin;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -90,7 +90,7 @@ public class AsyncBundleTest {
     }
 
     public final DropwizardClientExtension dropwizard = new DropwizardClientExtension(
-        AsyncFeature.class,
+        KotlinFeature.class,
         TestResource.class,
         new AbstractBinder() {
             @Override

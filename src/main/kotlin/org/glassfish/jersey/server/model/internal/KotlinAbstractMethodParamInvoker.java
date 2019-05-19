@@ -31,16 +31,18 @@ import org.glassfish.jersey.server.spi.internal.ParameterValueHelper;
 import org.glassfish.jersey.server.spi.internal.ResourceMethodDispatcher;
 
 /**
+ * Jersey contains a several internal classes that do the heavy lifting for dispatching to a java method; This class provides an interface
+ * to those internal classes to limit to scope of potential breaking changes when upgrading jersey.
+ *
  * @author Bryan Harclerode
- * @date 5/18/2019
  */
-public abstract class AbstractMethodParamInvoker implements ResourceMethodDispatcher {
+public abstract class KotlinAbstractMethodParamInvoker implements ResourceMethodDispatcher {
     private AbstractJavaResourceMethodDispatcher dispatcher;
 
     private List<ParamValueFactoryWithSource<?>> valueProviders;
 
 
-    protected AbstractMethodParamInvoker(
+    protected KotlinAbstractMethodParamInvoker(
         Invocable resourceMethod,
         InvocationHandler handler,
         List<ParamValueFactoryWithSource<?>> valueProviders,
@@ -50,11 +52,16 @@ public abstract class AbstractMethodParamInvoker implements ResourceMethodDispat
         dispatcher = new AbstractJavaResourceMethodDispatcher(resourceMethod, handler, validator) {
             @Override
             protected Response doDispatch(Object resource, ContainerRequest request) throws ProcessingException {
-                return AbstractMethodParamInvoker.this.doDispatch(resource, request);
+                return KotlinAbstractMethodParamInvoker.this.doDispatch(resource, request);
             }
         };
     }
 
+    /**
+     * Reifies the value providers into actual instances that can be used to invoke the method
+     *
+     * @return An array of arguments that can be passed to {@link #invoke(ContainerRequest, Object, Object...)}
+     */
     protected Object[] getParamValues() {
         return ParameterValueHelper.getParameterValues(valueProviders);
     }
@@ -78,6 +85,18 @@ public abstract class AbstractMethodParamInvoker implements ResourceMethodDispat
     @Override
     public final Response dispatch(Object resource, ContainerRequest request) { return dispatcher.dispatch(resource, request); }
 
+    /**
+     * Invokes the underlying java method for this resource
+     *
+     * @param containerRequest
+     *     The current request that is being handled
+     * @param resource
+     *     The receiver instance upon which the resource method should be invoked
+     * @param args
+     *     Arguments to pass to the resource method when invoking it
+     *
+     * @return The return value from the resource method that was invoked
+     */
     protected final Object invoke(ContainerRequest containerRequest, Object resource, Object... args) {
         return dispatcher.invoke(containerRequest, resource, args);
     }

@@ -11,30 +11,34 @@
     </parent>
 
     <groupId>zone.dragon.dropwizard</groupId>
-    <artifactId>dropwizard-async</artifactId>
+    <artifactId>dropwizard-kotlin</artifactId>
     <version>1.2-SNAPSHOT</version>
 
-    <name>Dropwizard :: Async Support</name>
+    <name>Dropwizard :: Kotlin Support</name>
     <description>
         Enables the use of CompletableFuture and ListenableFuture as return types from resource methods
     </description>
-    <url>https://github.com/dragonzone/dropwizard-async</url>
+    <url>https://github.com/dragonzone/dropwizard-kotlin</url>
 
     <scm>
-        <connection>scm:git:http://github.com/dragonzone/dropwizard-async.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com:dragonzone/dropwizard-async.git</developerConnection>
-        <url>https://github.com/dragonzone/dropwizard-async/tree/master</url>
+        <connection>scm:git:http://github.com/dragonzone/dropwizard-kotlin.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com:dragonzone/dropwizard-kotlin.git</developerConnection>
+        <url>https://github.com/dragonzone/dropwizard-kotlin/tree/master</url>
         <tag>HEAD</tag>
     </scm>
 
     <licenses>
         <license>
             <name>MIT License</name>
-            <url>https://github.com/dragonzone/dropwizard-async/blob/master/LICENSE</url>
+            <url>https://github.com/dragonzone/dropwizard-kotlin/blob/master/LICENSE</url>
         </license>
     </licenses>
 
     <dependencies>
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-kotlin</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
@@ -74,6 +78,16 @@
         <dependency>
             <groupId>org.glassfish.jersey.core</groupId>
             <artifactId>jersey-server</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-jdk8</artifactId>
+            <version>1.2.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-slf4j</artifactId>
+            <version>1.2.1</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>

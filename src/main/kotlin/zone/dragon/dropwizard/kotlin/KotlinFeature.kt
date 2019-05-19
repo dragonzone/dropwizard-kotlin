@@ -15,29 +15,32 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package zone.dragon.dropwizard.async;
+package zone.dragon.dropwizard.kotlin
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-
-import com.google.common.util.concurrent.ListenableFuture;
-
-import io.dropwizard.Bundle;
-import io.dropwizard.setup.Bootstrap;
-import io.dropwizard.setup.Environment;
+import org.glassfish.hk2.utilities.binding.AbstractBinder
+import org.glassfish.jersey.process.internal.RequestScoped
+import org.glassfish.jersey.server.spi.internal.ResourceMethodDispatcher
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionStage
+import javax.inject.Singleton
+import javax.ws.rs.core.Feature
+import javax.ws.rs.core.FeatureContext
+import kotlin.coroutines.CoroutineContext
 
 /**
- * Configures Dropwizard to support returning {@link ListenableFuture}, {@link CompletionStage}, and {@link CompletableFuture} from resource
- * methods
+ * Jersey [Feature] that enables support for resources that return [CompletionStage] or [CompletableFuture]
  *
  * @author Bryan Harclerode
  */
-public class AsyncBundle implements Bundle {
-    @Override
-    public void initialize(Bootstrap<?> bootstrap) { }
-
-    @Override
-    public void run(Environment environment) {
-        environment.jersey().register(AsyncFeature.class);
+class KotlinFeature : Feature {
+    override fun configure(context: FeatureContext): Boolean {
+        context.register(AsyncModelProcessor::class.java)
+        context.register(object : AbstractBinder() {
+            override fun configure() {
+                bind(AsyncJavaResourceMethodDispatcherProvider::class.java).to(ResourceMethodDispatcher.Provider::class.java).ranked(100)
+                bindFactory(CoroutineScopeFactory::class.java, Singleton::class.java).to(CoroutineContext::class.java).`in`(RequestScoped::class.java)
+            }
+        })
+        return true
     }
 }

@@ -15,7 +15,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package zone.dragon.dropwizard.async;
+package zone.dragon.dropwizard.kotlin;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -34,7 +34,7 @@ import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Configuration;
 
-import org.glassfish.hk2.utilities.reflection.ReflectionHelper;
+import org.glassfish.jersey.internal.util.ReflectionHelper;
 import org.glassfish.jersey.server.model.Invocable;
 import org.glassfish.jersey.server.model.ModelProcessor;
 import org.glassfish.jersey.server.model.Resource;
@@ -46,8 +46,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Model Processor to alter resource methods to run {@link Suspended} if they return a {@link ListenableFuture}, {@link CompletionStage},
- * or {@link CompletableFuture}
+ * Model Processor to alter resource methods to run {@link Suspended} if they return a {@link ListenableFuture}, {@link CompletionStage}, or
+ * {@link CompletableFuture}, and updates their response type to reflect the parameterized type from the continuation
  *
  * @author Bryan Harclerode
  */
@@ -72,13 +72,6 @@ public class AsyncModelProcessor implements ModelProcessor {
         return processModel(subResourceModel, true);
     }
 
-    protected boolean isAsyncType(Type type) {
-        Class<?> rawType = ReflectionHelper.getRawClass(type);
-        return CompletionStage.class.isAssignableFrom(rawType)
-            || ListenableFuture.class.isAssignableFrom(rawType)
-            || jersey.repackaged.com.google.common.util.concurrent.ListenableFuture.class.isAssignableFrom(rawType);
-    }
-
     protected Type isAsyncMethod(ResourceMethod method) {
         Invocable invocable = method.getInvocable();
         if (CompletionStage.class.isAssignableFrom(invocable.getRawResponseType())) {
@@ -101,7 +94,11 @@ public class AsyncModelProcessor implements ModelProcessor {
         for (ResourceMethod originalMethod : original.getResourceMethods()) {
             Type asyncResponseType = isAsyncMethod(originalMethod);
             if (asyncResponseType != null) {
-                log.info("Marking resource method as suspended: {} returns {}", originalMethod.getInvocable().getRawRoutingResponseType(), asyncResponseType);
+                log.info(
+                    "Marking resource method as suspended: {} returns {}",
+                    originalMethod.getInvocable().getRawRoutingResponseType(),
+                    asyncResponseType
+                );
                 resourceBuilder
                     .updateMethod(originalMethod)
                     .suspended(AsyncResponse.NO_TIMEOUT, TimeUnit.MILLISECONDS)
@@ -125,7 +122,7 @@ public class AsyncModelProcessor implements ModelProcessor {
             }
             Type next = typeQueue.remove(0);
             if (next instanceof ParameterizedType) {
-                Class<?> rawClass = org.glassfish.jersey.internal.util.ReflectionHelper.erasure(next);
+                Class<?> rawClass = ReflectionHelper.erasure(next);
                 TypeVariable<?>[] boundVariables = rawClass.getTypeParameters();
                 for (int i = 0; i < boundVariables.length; i++) {
                     knownTypes.putIfAbsent(boundVariables[i], ((ParameterizedType) next).getActualTypeArguments()[i]);

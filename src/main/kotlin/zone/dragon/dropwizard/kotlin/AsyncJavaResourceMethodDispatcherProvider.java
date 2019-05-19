@@ -15,7 +15,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package zone.dragon.dropwizard.async;
+package zone.dragon.dropwizard.kotlin;
 
 import java.lang.reflect.InvocationHandler;
 import java.util.List;
@@ -34,11 +34,10 @@ import org.glassfish.jersey.server.spi.internal.ResourceMethodDispatcher;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import lombok.val;
-
 /**
+ * Provider that detects asynchronous resource methods and returns an {@link AsyncDispatcher} to handle them
+ *
  * @author Bryan Harclerode
- * @date 5/18/2019
  */
 public class AsyncJavaResourceMethodDispatcherProvider implements ResourceMethodDispatcher.Provider {
 
@@ -48,7 +47,6 @@ public class AsyncJavaResourceMethodDispatcherProvider implements ResourceMethod
 
     @Inject
     public AsyncJavaResourceMethodDispatcherProvider(ServiceLocator serviceLocator, Provider<AsyncResponse> responseProvider) {
-
         this.serviceLocator = serviceLocator;
         this.responseProvider = responseProvider;
     }
@@ -63,11 +61,7 @@ public class AsyncJavaResourceMethodDispatcherProvider implements ResourceMethod
         if (CompletionStage.class.isAssignableFrom(returnType)
             || ListenableFuture.class.isAssignableFrom(returnType)
             || jersey.repackaged.com.google.common.util.concurrent.ListenableFuture.class.isAssignableFrom(returnType)) {
-            val dispatcher = new AsyncInvoker(resourceMethod, invocationHandler, valueProviders, responseValidator, responseProvider);
-
-            // Inject responseValidator.
-            serviceLocator.inject(dispatcher);
-            return dispatcher;
+            return new AsyncDispatcher(resourceMethod, invocationHandler, valueProviders, responseValidator, responseProvider);
         } else {
             return null;
         }
