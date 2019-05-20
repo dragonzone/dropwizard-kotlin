@@ -17,31 +17,46 @@
 
 package zone.dragon.dropwizard.kotlin
 
-import kotlinx.coroutines.CoroutineScope
-import org.glassfish.hk2.utilities.binding.AbstractBinder
-import org.glassfish.jersey.process.internal.RequestScoped
-import zone.dragon.dropwizard.kotlin.coroutines.CoroutineModelProcessor
-import zone.dragon.dropwizard.kotlin.coroutines.CoroutineScopeFactory
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletionStage
-import javax.inject.Singleton
-import javax.ws.rs.core.Feature
-import javax.ws.rs.core.FeatureContext
+import java.util.concurrent.atomic.AtomicInteger
+import javax.inject.Inject
+import javax.ws.rs.GET
+import javax.ws.rs.Path
+import javax.ws.rs.Produces
+import kotlin.coroutines.suspendCoroutine
 
 /**
- * Jersey [Feature] that enables support for resources that return [CompletionStage] or [CompletableFuture]
- *
- * @author Bryan Harclerode
+ * @author Darth Android
+ * @date 5/19/2019
  */
-class KotlinFeature : Feature {
-    override fun configure(context: FeatureContext): Boolean {
-        context.register(CoroutineModelProcessor::class.java)
-        context.register(object : AbstractBinder() {
-            override fun configure() {
-                //bind(AsyncJavaResourceMethodDispatcherProvider::class.java).to(ResourceMethodDispatcher.Provider::class.java).ranked(100)
-                bindFactory(CoroutineScopeFactory::class.java, Singleton::class.java).to(CoroutineScope::class.java).`in`(RequestScoped::class.java)
+@Path("test")
+class KotlinTestResource {
+
+    @Inject
+    internal var responseTrigger: CompletableFuture<Void>? = null
+
+    @Inject
+    internal var activeRequests: AtomicInteger? = null
+
+    @Path("suspendedFunction")
+    @GET
+    @Produces("application/json")
+    suspend fun getCompletionStage(request: TestRequest): TestResponse {
+        val activeRequests = this.activeRequests!!.incrementAndGet()
+        if (activeRequests == AsyncBundleTest.MAX_CONCURRENT) {
+            responseTrigger!!.complete(null)
+        }
+        suspendCoroutine<Unit> {
+            responseTrigger?.handle { _, error ->
+                it.resumeWith(
+                    if (error != null) {
+                        Result.failure(error)
+                    } else {
+                        Result.success(Unit)
+                    }
+                )
             }
-        })
-        return true
+        }
+        return TestResponse("testing", activeRequests)
     }
 }
