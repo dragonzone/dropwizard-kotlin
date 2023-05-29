@@ -19,9 +19,11 @@ package zone.dragon.dropwizard.kotlin
 
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.google.common.util.concurrent.ListenableFuture
-import io.dropwizard.Bundle
-import io.dropwizard.setup.Bootstrap
-import io.dropwizard.setup.Environment
+import io.dropwizard.core.Configuration
+import io.dropwizard.core.ConfiguredBundle
+import io.dropwizard.core.setup.Bootstrap
+import io.dropwizard.core.setup.Environment
+import zone.dragon.dropwizard.kotlin.coroutines.KotlinCoroutineFeature
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 
@@ -31,12 +33,12 @@ import java.util.concurrent.CompletionStage
  *
  * @author Bryan Harclerode
  */
-class KotlinBundle : Bundle {
+class KotlinBundle : ConfiguredBundle<Configuration> {
     override fun initialize(bootstrap: Bootstrap<*>) {
         bootstrap.objectMapper.registerModule(KotlinModule())
     }
 
-    override fun run(environment: Environment) {
-        environment.jersey().register(KotlinFeature::class.java)
+    override fun run(config: Configuration, environment: Environment) {
+        environment.jersey().register(KotlinCoroutineFeature::class.java)
     }
 }
