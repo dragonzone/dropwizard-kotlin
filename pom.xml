@@ -7,6 +7,7 @@
     <parent>
         <groupId>zone.dragon</groupId>
         <artifactId>base-dropwizard-4x-pom</artifactId>
+        <version>5.0.7</version>
     </parent>
 
     <groupId>zone.dragon.dropwizard</groupId>
@@ -86,11 +87,14 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.github.microutils</groupId>
+            <artifactId>kotlin-logging-jvm</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.willowtreeapps.assertk</groupId>
             <artifactId>assertk-jvm</artifactId>
-            <version>${assertk.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>

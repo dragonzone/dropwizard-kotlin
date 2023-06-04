@@ -17,42 +17,27 @@
 
 package zone.dragon.dropwizard.kotlin.coroutines
 
-import com.google.common.util.concurrent.ListenableFuture
-import org.glassfish.hk2.api.ServiceLocator
-import org.glassfish.jersey.internal.util.ReflectionHelper
+import jakarta.inject.Singleton
+import jakarta.ws.rs.core.Configuration
+import mu.KLogging
 import org.glassfish.jersey.server.model.ModelProcessor
 import org.glassfish.jersey.server.model.Resource
 import org.glassfish.jersey.server.model.ResourceMethod
 import org.glassfish.jersey.server.model.ResourceModel
-import org.slf4j.LoggerFactory
-import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Type
-import java.lang.reflect.TypeVariable
-import java.util.ArrayList
-import java.util.Arrays
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletionStage
-import java.util.concurrent.TimeUnit
-import javax.inject.Inject
-import javax.inject.Singleton
-import javax.ws.rs.container.AsyncResponse
-import javax.ws.rs.container.Suspended
-import javax.ws.rs.core.Configuration
 import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.kotlinFunction
 
 /**
- * Model Processor to alter resource methods to run [Suspended] if they return a [ListenableFuture], [CompletionStage], or
- * [CompletableFuture], and updates their response type to reflect the parameterized type from the continuation
+ * Model Processor to alter resource methods handled by suspending kotlin functions to have the correct response type
+ * for matching message body writers
  *
  * @author Bryan Harclerode
  */
 @Singleton
-class CoroutineModelProcessor @Inject constructor(private val locator : ServiceLocator) : ModelProcessor {
+class CoroutineModelProcessor : ModelProcessor {
 
-    companion object {
-        private val log = LoggerFactory.getLogger(CoroutineModelProcessor::class.java)
-    }
+    companion object : KLogging()
 
     private fun processModel(originalModel: ResourceModel, subresource: Boolean): ResourceModel {
         val modelBuilder = ResourceModel.Builder(subresource)
@@ -70,7 +55,11 @@ class CoroutineModelProcessor @Inject constructor(private val locator : ServiceL
         return processModel(subResourceModel, true)
     }
 
-    protected fun isCoroutine(method: ResourceMethod): Type? {
+    /**
+     * Checks if a given resource is handled by a suspendable kotlin function, and if so, returns the actual return type
+     * for that method
+     */
+    private fun isCoroutine(method: ResourceMethod): Type? {
         val function = method.invocable?.handlingMethod?.kotlinFunction
         return if (function?.isSuspend == true) {
             function.returnType.javaType
@@ -88,45 +77,10 @@ class CoroutineModelProcessor @Inject constructor(private val locator : ServiceL
         for (originalMethod in original.resourceMethods) {
             val asyncResponseType = isCoroutine(originalMethod)
             if (asyncResponseType != null) {
-                log.info(
-                    "Marking resource method as suspended: {} returns {}",
-                    originalMethod.invocable.rawRoutingResponseType,
-                    asyncResponseType
-                )
-                resourceBuilder
-                    .updateMethod(originalMethod)
-                    .suspended(AsyncResponse.NO_TIMEOUT, TimeUnit.MILLISECONDS)
-                    .routingResponseType(asyncResponseType)
-                    .handledBy(CoroutineDispatcher(originalMethod.invocable, locator))
+                logger.debug { "Updating return type of $originalMethod to suspended type $asyncResponseType" }
+                resourceBuilder.updateMethod(originalMethod).routingResponseType(asyncResponseType)
             }
         }
         return resourceBuilder.build()
-    }
-
-    protected fun resolveType(boundType: Type, targetClass: Class<*>, targetClassIndex: Int): Type? {
-        return resolveType(boundType, targetClass.typeParameters[targetClassIndex])
-    }
-
-    protected fun resolveType(boundType: Type, targetType: TypeVariable<*>): Type? {
-        val typeQueue = ArrayList<Type>(1)
-        typeQueue.add(boundType)
-        val knownTypes = mutableMapOf<TypeVariable<*>, Type>()
-        while (!knownTypes.containsKey(targetType)) {
-            if (typeQueue.isEmpty()) {
-                return null
-            }
-            val next = typeQueue.removeAt(0)
-            if (next is ParameterizedType) {
-                val rawClass = ReflectionHelper.erasure<Any>(next)
-                val boundVariables = rawClass.typeParameters
-                for (i in boundVariables.indices) {
-                    knownTypes.putIfAbsent(boundVariables[i], next.actualTypeArguments[i])
-                }
-            } else if (next is Class<*>) {
-                typeQueue.addAll(Arrays.asList(*next.genericInterfaces))
-                typeQueue.add(next.genericSuperclass)
-            }
-        }
-        return knownTypes[targetType]
     }
 }
