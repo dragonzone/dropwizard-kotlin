@@ -18,24 +18,21 @@
 package zone.dragon.dropwizard.kotlin
 
 import com.fasterxml.jackson.module.kotlin.KotlinModule
-import com.google.common.util.concurrent.ListenableFuture
 import io.dropwizard.core.Configuration
 import io.dropwizard.core.ConfiguredBundle
 import io.dropwizard.core.setup.Bootstrap
 import io.dropwizard.core.setup.Environment
 import zone.dragon.dropwizard.kotlin.coroutines.KotlinCoroutineFeature
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletionStage
 
 /**
- * Configures Dropwizard to support returning [ListenableFuture], [CompletionStage], and [CompletableFuture] from resource
- * methods
+ * Configures Dropwizard to support suspendable coroutines and enables support for serializing to/from kotlin classes
+ * using Jackson.
  *
  * @author Bryan Harclerode
  */
 class KotlinBundle : ConfiguredBundle<Configuration> {
     override fun initialize(bootstrap: Bootstrap<*>) {
-        bootstrap.objectMapper.registerModule(KotlinModule())
+        bootstrap.objectMapper.registerModule(KotlinModule.Builder().build())
     }
 
     override fun run(config: Configuration, environment: Environment) {

@@ -28,10 +28,9 @@ import jakarta.ws.rs.core.FeatureContext
 class KotlinCoroutineFeature : Feature {
     override fun configure(context: FeatureContext): Boolean {
         context.register(CoroutineModelProcessor::class.java)
-        //context.register(ApplicationJobManager::class.java)
         context.register(ContinuationValueParamProvider::class.java)
         context.register(ApplicationCoroutineScope.Binder())
-        context.register(JerseyRequestCoroutineScope.Binder())
+        context.register(JerseyRequestCoroutine.Binder())
         context.register(CoroutineInvocationHandlerProvider.Binder())
         return true
     }

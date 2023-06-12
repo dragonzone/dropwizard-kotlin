@@ -1,11 +1,10 @@
-# Dropwizard Async Non-Blocking [![Build Status](https://jenkins.dragon.zone/buildStatus/icon?job=dragonzone/dropwizard-async/master)](https://jenkins.dragon.zone/blue/organizations/jenkins/dragonzone%2Fdropwizard-async/activity?branch=master) [![Maven Central](https://maven-badges.herokuapp.com/maven-central/zone.dragon.dropwizard/dropwizard-async/badge.svg)](https://maven-badges.herokuapp.com/maven-central/zone.dragon.dropwizard/dropwizard-async/)
+# Dropwizard Kotlin [![Build Status](https://jenkins.dragon.zone/buildStatus/icon?job=dragonzone/dropwizard-kotlin/master)](https://jenkins.dragon.zone/blue/organizations/jenkins/dragonzone%2Fdropwizard-kotlin/activity?branch=master) [![Maven Central](https://maven-badges.herokuapp.com/maven-central/zone.dragon.dropwizard/dropwizard-kotlin/badge.svg)](https://maven-badges.herokuapp.com/maven-central/zone.dragon.dropwizard/dropwizard-kotlin/)
 
-This bundle adds support for resources methods to return `CompletionStage` and `ListenableFuture` types, which allow for fully non-blocking
-handling of requests. 
+This bundle adds support for resource handlers written in kotlin to use 
 
 To use this bundle, add it to your application in the initialize method:
 
     @Override
     public void initialize(Bootstrap<T> bootstrap) {
-        bootstrap.addBundle(new AsyncBundle());
+        bootstrap.addBundle(new KotlinBundle<>());
     }

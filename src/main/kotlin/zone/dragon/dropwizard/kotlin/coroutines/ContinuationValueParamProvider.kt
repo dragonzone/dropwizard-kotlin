@@ -11,14 +11,16 @@ import java.util.function.Function
 import kotlin.coroutines.Continuation
 
 /**
- * [ValueParamProvider] that resolves a [JerseyRequestCoroutineScope] for injecting into suspending kotlin functions
+ * [ValueParamProvider] that resolves a [JerseyRequestCoroutine] for injecting into suspending kotlin functions
  *
  * @author Bryan Harclerode
  */
 @jakarta.ws.rs.ext.Provider
 class ContinuationValueParamProvider @Inject constructor(
-    private val coroutineProvider: Provider<JerseyRequestCoroutineScope>
+    private val coroutineProvider: Provider<JerseyRequestCoroutine>
 ) : ValueParamProvider {
+
+    private val valueProvider: Function<ContainerRequest, *> = Function { coroutineProvider.get() }
 
     override fun getValueProvider(parameter: Parameter): Function<ContainerRequest, *>? {
         if (parameter.source != Source.CONTEXT) {
@@ -27,7 +29,7 @@ class ContinuationValueParamProvider @Inject constructor(
         if (parameter.rawType != Continuation::class.java) {
             return null
         }
-        return Function { coroutineProvider.get() }
+        return valueProvider
     }
 
     override fun getPriority(): ValueParamProvider.PriorityType {

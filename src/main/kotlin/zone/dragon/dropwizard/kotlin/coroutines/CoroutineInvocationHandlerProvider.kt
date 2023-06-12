@@ -21,6 +21,9 @@ import kotlin.reflect.jvm.kotlinFunction
 class CoroutineInvocationHandlerProvider @Inject constructor(asyncContext: Provider<AsyncContext>) :
     ResourceMethodInvocationHandlerProvider {
 
+    /**
+     * Binder for configuring [CoroutineInvocationHandlerProvider] to intercept resource handlers that are coroutines
+     */
     class Binder : AbstractBinder() {
         override fun configure() {
             bind(CoroutineInvocationHandlerProvider::class.java)
@@ -39,7 +42,7 @@ class CoroutineInvocationHandlerProvider @Inject constructor(asyncContext: Provi
             return@InvocationHandler null
         }
         // Coroutine didn't suspend, just clean up the coroutine and return the result
-        (args[args.size - 1] as? JerseyRequestCoroutineScope)?.dispose()
+        (args[args.size - 1] as? JerseyRequestCoroutine)?.complete()
         return@InvocationHandler result
     }
 

@@ -1,7 +1,9 @@
 package zone.dragon.dropwizard.kotlin
 
 import assertk.assertThat
+import assertk.assertions.contains
 import assertk.assertions.isEqualTo
+import assertk.assertions.isNull
 import io.dropwizard.core.Application
 import io.dropwizard.core.Configuration
 import io.dropwizard.core.setup.Bootstrap
@@ -17,16 +19,18 @@ import jakarta.ws.rs.WebApplicationException
 import jakarta.ws.rs.client.Client
 import jakarta.ws.rs.client.Entity
 import jakarta.ws.rs.client.WebTarget
+import jakarta.ws.rs.container.ContainerRequestContext
+import jakarta.ws.rs.container.ContainerRequestFilter
+import jakarta.ws.rs.container.ContainerResponseContext
+import jakarta.ws.rs.container.ContainerResponseFilter
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.slf4j.MDC
 
 @ExtendWith(DropwizardExtensionsSupport::class)
 class KotlinCoroutineFeatureTests {
@@ -54,10 +58,24 @@ class KotlinCoroutineFeatureTests {
     class App : Application<Configuration>() {
         override fun run(configuration: Configuration, environment: Environment) {
             environment.jersey().register(TestResource::class.java)
+            environment.jersey().register(RequestFilter::class.java)
+            environment.jersey().register(ResponseFilter::class.java)
         }
 
         override fun initialize(bootstrap: Bootstrap<Configuration>) {
             bootstrap.addBundle(KotlinBundle())
+        }
+    }
+
+    class RequestFilter : ContainerRequestFilter {
+        override fun filter(requestContext: ContainerRequestContext) {
+            MDC.put("pre-request", "some-value")
+        }
+    }
+
+    class ResponseFilter : ContainerResponseFilter {
+        override fun filter(requestContext: ContainerRequestContext, responseContext: ContainerResponseContext) {
+            MDC.getCopyOfContextMap().forEach { (key, value) -> responseContext.headers.add("mdc-$key", value) }
         }
     }
 
@@ -87,6 +105,14 @@ class KotlinCoroutineFeatureTests {
             return "suspend"
         }
 
+        @Path("mdc")
+        @GET
+        suspend fun mdcContext(): String {
+            MDC.put("handler", "value")
+            delay(1)
+            MDC.put("post-dispatch", "handler")
+            return "value" //MDC.get("handler")
+        }
 
         @Path("suspendWithEntity")
         @POST
@@ -102,7 +128,6 @@ class KotlinCoroutineFeatureTests {
             throw WebApplicationException(Response.status(500).entity("exception").build())
         }
 
-
         @Path("exceptionWithEntity")
         @POST
         suspend fun exception(entity: String): String {
@@ -116,36 +141,55 @@ class KotlinCoroutineFeatureTests {
             throw WebApplicationException(Response.status(500).entity("exception").build())
         }
 
-
         @Path("exceptionUndispatchedWithEntity")
         @POST
         suspend fun exceptionDispatched(entity: String): String {
             throw WebApplicationException(Response.status(500).entity("exception $entity").build())
         }
 
-
-        @Path("someGetter")
-        @GET
-        suspend fun someGetter(): String = coroutineScope {
-            delay(1)
-            println("Resumed!")
-            val later = async {
-                println("Async launch!")
-                //delay(1000)
-                println("Async Delayed")
-                return@async "resp"
-            }
-            val later2 = async {
-                println("Async2 launch!")
-                //delay(1000)
-                println("Async2 Delayed")
-                return@async "once!"
-            }
-
-            println("returning")
-            return@coroutineScope later.await() + later2.await()
+        @Path("subResource")
+        fun getSubResource(): SubResource {
+            return SubResource()
         }
 
+        class SubResource {
+
+            @Path("subGet")
+            @GET
+            suspend fun suspend(): String {
+                delay(1)
+                return "subSuspend"
+            }
+
+            @Path("subGetUndispatched")
+            @GET
+            suspend fun suspendUndispatched(): String {
+                return "subSuspendUndispatched"
+            }
+        }
+    }
+
+    @Test
+    fun testMDCPreserved() {
+        val response = client.path("mdc").request().get()
+        val entity = response.readEntity(String::class.java)
+        assertThat(entity).isEqualTo("value")
+        assertThat(response.getHeaderString("mdc-pre-request")).isEqualTo("some-value")
+        // MDC updates unfortunately are not captured in the handler
+        assertThat(response.getHeaderString("mdc-handler")).isNull()
+        assertThat(response.getHeaderString("mdc-post-dispatch")).isNull()
+    }
+
+    @Test
+    fun testSubResourceSuspendUndispatched() {
+        val response = client.path("subResource/subGetUndispatched").request().get().readEntity(String::class.java)
+        assertThat(response).isEqualTo("subSuspendUndispatched")
+    }
+
+    @Test
+    fun testSubResourceSuspend() {
+        val response = client.path("subResource/subGet").request().get().readEntity(String::class.java)
+        assertThat(response).isEqualTo("subSuspend")
     }
 
     @Test
@@ -156,7 +200,11 @@ class KotlinCoroutineFeatureTests {
 
     @Test
     fun testSuspendUndispatchedWithEntity() {
-        val response = client.path("suspendUndispatchedWithEntity").request().post(Entity.json("value")).readEntity(String::class.java)
+        val response = client
+            .path("suspendUndispatchedWithEntity")
+            .request()
+            .post(Entity.json("value"))
+            .readEntity(String::class.java)
         assertThat(response).isEqualTo("direct value")
     }
 

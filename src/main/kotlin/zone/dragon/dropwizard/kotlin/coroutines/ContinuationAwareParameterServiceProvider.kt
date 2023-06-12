@@ -56,7 +56,6 @@ class ContinuationAwareParameterServiceProvider : ServerParameterService(), Para
                         encoded,
                         defaultValue
                     )
-
                 }
                 return delegate.createParameter(
                     markers, marker, source, sourceName, rawType, type, encoded, defaultValue
