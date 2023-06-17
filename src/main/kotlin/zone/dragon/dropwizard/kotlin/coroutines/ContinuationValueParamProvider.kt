@@ -16,11 +16,9 @@ import kotlin.coroutines.Continuation
  * @author Bryan Harclerode
  */
 @jakarta.ws.rs.ext.Provider
-class ContinuationValueParamProvider @Inject constructor(
-    private val coroutineProvider: Provider<JerseyRequestCoroutine>
-) : ValueParamProvider {
+class ContinuationValueParamProvider @Inject constructor() : ValueParamProvider {
 
-    private val valueProvider: Function<ContainerRequest, *> = Function { coroutineProvider.get() }
+    private val valueProvider: Function<ContainerRequest, *> = Function { null }
 
     override fun getValueProvider(parameter: Parameter): Function<ContainerRequest, *>? {
         if (parameter.source != Source.CONTEXT) {
