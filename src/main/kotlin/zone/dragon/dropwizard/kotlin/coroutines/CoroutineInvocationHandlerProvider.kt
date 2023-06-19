@@ -19,7 +19,7 @@ import kotlin.reflect.jvm.kotlinFunction
 class CoroutineInvocationHandlerProvider @Inject constructor(
     asyncContext: Provider<AsyncContext>,
     scope: Provider<CoroutineScope>,
-    requestScopeProvider: Provider<RequestScope>
+    requestScope: RequestScope
 ) :
     ResourceMethodInvocationHandlerProvider {
 
@@ -34,7 +34,11 @@ class CoroutineInvocationHandlerProvider @Inject constructor(
         }
     }
 
-    private var invocationHandler = CoroutineInvocationHandler(scope, asyncContext, requestScopeProvider)
+    private var invocationHandler = CoroutineInvocationHandler(
+        { scope.get().coroutineContext },
+        asyncContext,
+        requestScope
+    )
 
     override fun create(method: Invocable): InvocationHandler? {
         if (method.handlingMethod.kotlinFunction?.isSuspend == true) {

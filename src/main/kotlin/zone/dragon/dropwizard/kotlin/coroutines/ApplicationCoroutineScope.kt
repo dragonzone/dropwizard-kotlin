@@ -20,6 +20,10 @@ import org.glassfish.hk2.api.Factory as Hk2Factory
 class ApplicationCoroutineScope private constructor(dispatcher: CoroutineDispatcher, private val job: CompletableJob) :
     CoroutineScope by CoroutineScope(dispatcher + job) {
 
+    companion object {
+        const val NAME = "zone.dragon.dropwizard.kotlin.APPLICATION_SCOPE"
+    }
+
     private class Factory @Inject constructor(private val dispatcher: CoroutineDispatcher) : Hk2Factory<ApplicationCoroutineScope> {
 
         companion object : KLogging()
@@ -45,6 +49,7 @@ class ApplicationCoroutineScope private constructor(dispatcher: CoroutineDispatc
             bindFactory(Factory::class.java, Singleton::class.java)
                 .to(CoroutineScope::class.java)
                 .`in`(Singleton::class.java)
+                .named(NAME)
                 .ranked(-1)
             bind(Dispatchers.Default).to(CoroutineDispatcher::class.java).ranked(-1)
         }

@@ -2,13 +2,10 @@ package zone.dragon.dropwizard.kotlin.coroutines;
 
 import jakarta.inject.Provider;
 import jakarta.ws.rs.ProcessingException;
-import jakarta.ws.rs.core.Response;
 import kotlin.Result;
-import kotlin.Unit;
 import kotlin.coroutines.Continuation;
 import kotlin.coroutines.CoroutineContext;
 import kotlin.coroutines.intrinsics.IntrinsicsKt;
-import kotlinx.coroutines.CoroutineScope;
 import kotlinx.coroutines.CoroutineScopeKt;
 import kotlinx.coroutines.Dispatchers;
 import kotlinx.coroutines.Job;
@@ -17,7 +14,6 @@ import org.glassfish.jersey.process.internal.RequestScope;
 import org.glassfish.jersey.server.AsyncContext;
 import org.glassfish.jersey.server.internal.LocalizationMessages;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.MDC;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -89,31 +85,30 @@ public class CoroutineInvocationHandler implements InvocationHandler {
         }
     }
 
-    private final Provider<CoroutineScope> scopeProvider;
+    private final Provider<CoroutineContext> contextProvider;
 
     private final Provider<AsyncContext> asyncContextProvider;
 
-    private final Provider<RequestScope> requestScopeProvider;
+    private final RequestScope requestScope;
 
-    public CoroutineInvocationHandler(Provider<CoroutineScope> scopeProvider, Provider<AsyncContext> asyncContextProvider, Provider<RequestScope> requestScopeProvider) {
-        this.scopeProvider = scopeProvider;
+    public CoroutineInvocationHandler(Provider<CoroutineContext> contextProvider, Provider<AsyncContext> asyncContextProvider, RequestScope requestScope) {
+        this.contextProvider = contextProvider;
         this.asyncContextProvider = asyncContextProvider;
-        this.requestScopeProvider = requestScopeProvider;
+        this.requestScope = requestScope;
     }
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        AsyncContext asyncContext = asyncContextProvider.get();
         MDCContext mdcContext = new MDCContext();
-        RequestScopeContext requestScopeContext = new RequestScopeContext(requestScopeProvider.get());
-        CoroutineContext context = scopeProvider.get().getCoroutineContext().plus(mdcContext).plus(requestScopeContext);
-        AsyncContextContinuation asyncContextContinuation = new AsyncContextContinuation(context, asyncContextProvider.get());
+        RequestScopeContext requestScopeContext = new RequestScopeContext(requestScope);
+        CoroutineContext context = contextProvider.get().plus(mdcContext).plus(requestScopeContext);
+        AsyncContextContinuation asyncContextContinuation = new AsyncContextContinuation(context, asyncContext);
+
         Object result = CoroutineScopeKt.coroutineScope((scope, continuation) -> {
             // coroutineScope guarantees a Job element in the context
             Job coroutine = continuation.getContext().get(Job.Key);
-            coroutine.invokeOnCompletion(cause -> {
-                requestScopeContext.invoke(cause);
-                return Unit.INSTANCE;
-            });
+            coroutine.invokeOnCompletion(true, true, requestScopeContext);
             // Inject our coroutine continuation into the call arguments
             args[args.length - 1] = continuation;
             try {
@@ -125,10 +120,14 @@ public class CoroutineInvocationHandler implements InvocationHandler {
         }, asyncContextContinuation);
         // Check if coroutine actually suspended
         if (result == COROUTINE_SUSPENDED) {
-            asyncContextContinuation.suspend();
+            if (!asyncContext.suspend()) {
+                throw new ProcessingException(LocalizationMessages.ERROR_SUSPENDING_ASYNC_REQUEST());
+            }
+            //noinspection SuspiciousInvocationHandlerImplementation
             return null;
         }
         // Coroutine didn't suspend and returned immediately
+        requestScopeContext.invoke(null);
         return result;
     }
 }
