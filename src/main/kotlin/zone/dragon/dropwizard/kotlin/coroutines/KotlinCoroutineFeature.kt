@@ -19,6 +19,10 @@ package zone.dragon.dropwizard.kotlin.coroutines
 
 import jakarta.ws.rs.core.Feature
 import jakarta.ws.rs.core.FeatureContext
+import zone.dragon.dropwizard.kotlin.coroutines.scopes.ApplicationCoroutineScope
+import zone.dragon.dropwizard.kotlin.coroutines.scopes.CoroutineContextFactory
+import zone.dragon.dropwizard.kotlin.coroutines.scopes.CoroutineScopeManager
+import zone.dragon.dropwizard.kotlin.coroutines.scopes.RequestCoroutineScope
 
 /**
  * Jersey [Feature] that enables support for resources that are handled by suspending kotlin functions
@@ -27,10 +31,15 @@ import jakarta.ws.rs.core.FeatureContext
  */
 class KotlinCoroutineFeature : Feature {
     override fun configure(context: FeatureContext): Boolean {
+        // Model adjustments
         context.register(CoroutineModelProcessor::class.java)
+        // Application and Request Scope
+        context.register(ApplicationCoroutineScope.Binder::class.java)
+        context.register(RequestCoroutineScope.Binder::class.java)
+        context.register(CoroutineContextFactory.Binder::class.java)
+        context.register(CoroutineScopeManager::class.java)
+        // Resource Handler Invocation
         context.register(ContinuationValueParamProvider::class.java)
-        context.register(ApplicationCoroutineScope.Binder())
-        context.register(JerseyRequestCoroutine.Binder())
         context.register(CoroutineInvocationHandlerProvider.Binder())
         return true
     }

@@ -70,12 +70,14 @@ class KotlinCoroutineFeatureTests {
     class RequestFilter : ContainerRequestFilter {
         override fun filter(requestContext: ContainerRequestContext) {
             MDC.put("pre-request", "some-value")
+            println("Request  Thread: ${Thread.currentThread().name}")
         }
     }
 
     class ResponseFilter : ContainerResponseFilter {
         override fun filter(requestContext: ContainerRequestContext, responseContext: ContainerResponseContext) {
             MDC.getCopyOfContextMap().forEach { (key, value) -> responseContext.headers.add("mdc-$key", value) }
+            println("Response Thread: ${Thread.currentThread().name}")
         }
     }
 
@@ -95,13 +97,19 @@ class KotlinCoroutineFeatureTests {
         @Path("suspendUndispatchedWithEntity")
         @POST
         suspend fun suspendUndispatched(entity: String): String {
+
+            println("Dispatch Thread: ${Thread.currentThread().name}")
             return "direct $entity"
         }
 
         @Path("suspend")
         @GET
         suspend fun suspend(): String {
+
+            println("Dispatch Thread: ${Thread.currentThread().name}")
             delay(1)
+
+            println("Resume   Thread: ${Thread.currentThread().name}")
             return "suspend"
         }
 

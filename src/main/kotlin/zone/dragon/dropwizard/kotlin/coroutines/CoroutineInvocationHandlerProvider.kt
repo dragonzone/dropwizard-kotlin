@@ -17,11 +17,8 @@ import kotlin.reflect.jvm.kotlinFunction
  * processing context when the coroutine suspends and dispatches to a different thread
  */
 class CoroutineInvocationHandlerProvider @Inject constructor(
-    asyncContext: Provider<AsyncContext>,
-    scope: Provider<CoroutineScope>,
-    requestScope: RequestScope
-) :
-    ResourceMethodInvocationHandlerProvider {
+    asyncContext: Provider<AsyncContext>, scope: Provider<CoroutineScope>
+) : ResourceMethodInvocationHandlerProvider {
 
     /**
      * Binder for configuring [CoroutineInvocationHandlerProvider] to intercept resource handlers that are coroutines
@@ -34,11 +31,7 @@ class CoroutineInvocationHandlerProvider @Inject constructor(
         }
     }
 
-    private var invocationHandler = CoroutineInvocationHandler(
-        { scope.get().coroutineContext },
-        asyncContext,
-        requestScope
-    )
+    private var invocationHandler = CoroutineInvocationHandler(scope, asyncContext)
 
     override fun create(method: Invocable): InvocationHandler? {
         if (method.handlingMethod.kotlinFunction?.isSuspend == true) {

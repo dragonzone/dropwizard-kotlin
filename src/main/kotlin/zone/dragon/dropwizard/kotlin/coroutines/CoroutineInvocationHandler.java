@@ -3,14 +3,12 @@ package zone.dragon.dropwizard.kotlin.coroutines;
 import jakarta.inject.Provider;
 import jakarta.ws.rs.ProcessingException;
 import kotlin.Result;
+import kotlin.Unit;
 import kotlin.coroutines.Continuation;
 import kotlin.coroutines.CoroutineContext;
 import kotlin.coroutines.intrinsics.IntrinsicsKt;
-import kotlinx.coroutines.CoroutineScopeKt;
-import kotlinx.coroutines.Dispatchers;
-import kotlinx.coroutines.Job;
+import kotlinx.coroutines.*;
 import kotlinx.coroutines.slf4j.MDCContext;
-import org.glassfish.jersey.process.internal.RequestScope;
 import org.glassfish.jersey.server.AsyncContext;
 import org.glassfish.jersey.server.internal.LocalizationMessages;
 import org.jetbrains.annotations.NotNull;
@@ -33,101 +31,72 @@ public class CoroutineInvocationHandler implements InvocationHandler {
         throw (T) t;
     }
 
-    /*
-     * Continuation that wraps Jersey's AsyncContext and handles suspending and resuming a Jersey request as
-     */
     private static class AsyncContextContinuation implements Continuation<Object> {
 
-        private final CoroutineContext coroutineContext;
-
         private final AsyncContext asyncContext;
+        private final Continuation<? super Unit> continuation;
 
-        public AsyncContextContinuation(CoroutineContext coroutineContext, AsyncContext asyncContext) {
-            this.coroutineContext = coroutineContext;
+        public AsyncContextContinuation(AsyncContext asyncContext, Continuation<? super Unit> continuation) {
             this.asyncContext = asyncContext;
+            this.continuation = continuation;
         }
 
         @NotNull
         @Override
         public CoroutineContext getContext() {
-            return coroutineContext;
+            return continuation.getContext();
         }
 
         @Override
-        public void resumeWith(@NotNull Object result) {
-            // asyncContext.resume() synchronously performs IO, so we need to dispatch to Dispatchers.IO
-            Dispatchers.getIO().interceptContinuation(new Continuation<>() {
-                @NotNull
-                @Override
-                public CoroutineContext getContext() {
-                    return AsyncContextContinuation.this.getContext();
+        public void resumeWith(@NotNull Object o) {
+            System.out.println("Resuming AsyncContext");
+            BuildersKt.<Unit>withContext(Dispatchers.getIO(), (scope, continuation) -> {
+                if (o instanceof Result.Failure) {
+                    asyncContext.resume(((Result.Failure) o).exception);
+                } else {
+                    asyncContext.resume(o);
                 }
-
-                @Override
-                public void resumeWith(@NotNull Object dispatchedResult) {
-                    if (dispatchedResult instanceof Result.Failure) {
-                        asyncContext.resume(((Result.Failure) dispatchedResult).exception);
-                    } else {
-                        asyncContext.resume(dispatchedResult);
-                    }
-                }
-            }).resumeWith(result);
-        }
-
-        /**
-         * Suspends the Jersey request context, allowing the resource handler to return {@code null} and provide a
-         * response instead via {@link AsyncContext#resume(Object)}
-         */
-        public void suspend() {
-            if (!asyncContext.suspend()) {
-                throw new ProcessingException(LocalizationMessages.ERROR_SUSPENDING_ASYNC_REQUEST());
-            }
+                return Unit.INSTANCE;
+            }, continuation);
         }
     }
 
-    private final Provider<CoroutineContext> contextProvider;
+    private final Provider<CoroutineScope> scopeProvider;
 
     private final Provider<AsyncContext> asyncContextProvider;
 
-    private final RequestScope requestScope;
 
-    public CoroutineInvocationHandler(Provider<CoroutineContext> contextProvider, Provider<AsyncContext> asyncContextProvider, RequestScope requestScope) {
-        this.contextProvider = contextProvider;
+    public CoroutineInvocationHandler(Provider<CoroutineScope> scopeProvider, Provider<AsyncContext> asyncContextProvider) {
+        this.scopeProvider = scopeProvider;
         this.asyncContextProvider = asyncContextProvider;
-        this.requestScope = requestScope;
     }
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        AsyncContext asyncContext = asyncContextProvider.get();
         MDCContext mdcContext = new MDCContext();
-        RequestScopeContext requestScopeContext = new RequestScopeContext(requestScope);
-        CoroutineContext context = contextProvider.get().plus(mdcContext).plus(requestScopeContext);
-        AsyncContextContinuation asyncContextContinuation = new AsyncContextContinuation(context, asyncContext);
+        AsyncContext asyncContext = asyncContextProvider.get();
+        CoroutineScope requestCoroutineScope = scopeProvider.get();
 
-        Object result = CoroutineScopeKt.coroutineScope((scope, continuation) -> {
-            // coroutineScope guarantees a Job element in the context
-            Job coroutine = continuation.getContext().get(Job.Key);
-            coroutine.invokeOnCompletion(true, true, requestScopeContext);
+
+        Deferred<Object> result = BuildersKt.async(requestCoroutineScope, mdcContext, CoroutineStart.UNDISPATCHED, (scope, continuation) -> {
             // Inject our coroutine continuation into the call arguments
-            args[args.length - 1] = continuation;
+            args[args.length - 1] = new AsyncContextContinuation(asyncContext, continuation);
             try {
                 return method.invoke(proxy, args);
             } catch (Throwable t) {
                 // Kotlin doesn't understand checked exceptions, so sneakyThrow to bypass java restrictions.
                 throw sneakyThrow(t);
             }
-        }, asyncContextContinuation);
+        });
+        System.out.println("Deferred: " + result);
         // Check if coroutine actually suspended
-        if (result == COROUTINE_SUSPENDED) {
-            if (!asyncContext.suspend()) {
-                throw new ProcessingException(LocalizationMessages.ERROR_SUSPENDING_ASYNC_REQUEST());
-            }
-            //noinspection SuspiciousInvocationHandlerImplementation
-            return null;
+        if (result.isCompleted()) {
+            return result.getCompleted();
         }
-        // Coroutine didn't suspend and returned immediately
-        requestScopeContext.invoke(null);
-        return result;
+        // It did, so suspend the context
+        if (!asyncContext.suspend()) {
+            throw new ProcessingException(LocalizationMessages.ERROR_SUSPENDING_ASYNC_REQUEST());
+        }
+        return null;
     }
 }
