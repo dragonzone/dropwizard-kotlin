@@ -27,10 +27,8 @@ package zone.dragon.dropwizard.kotlin
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import io.dropwizard.core.Configuration
 import io.dropwizard.core.ConfiguredBundle
-import io.dropwizard.core.server.AbstractServerFactory
 import io.dropwizard.core.setup.Bootstrap
 import io.dropwizard.core.setup.Environment
-import io.dropwizard.util.Duration
 import zone.dragon.dropwizard.kotlin.coroutines.KotlinCoroutineFeature
 
 /**
@@ -45,10 +43,7 @@ class KotlinBundle : ConfiguredBundle<Configuration> {
     }
 
     override fun run(config: Configuration, environment: Environment) {
-        val gracefulShutdown =
-            (config.serverFactory as? AbstractServerFactory)?.shutdownGracePeriod ?: Duration.seconds(0)!!
-
-        environment.jersey().register(KotlinCoroutineFeature(gracefulShutdown.toJavaDuration()))
+        environment.jersey().register(KotlinCoroutineFeature())
         // TODO: Add support for kotlinx-serialization as an alternative to Jackson
     }
 }

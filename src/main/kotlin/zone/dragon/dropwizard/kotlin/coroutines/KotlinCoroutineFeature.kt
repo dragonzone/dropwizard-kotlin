@@ -29,23 +29,13 @@ import jakarta.ws.rs.core.FeatureContext
 import zone.dragon.dropwizard.kotlin.coroutines.scopes.ApplicationCoroutineScope
 import zone.dragon.dropwizard.kotlin.coroutines.scopes.CoroutineScopeManager
 import zone.dragon.dropwizard.kotlin.coroutines.scopes.RequestCoroutineScope
-import java.time.Duration
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
 
 /**
  * Jersey [Feature] that enables support for resources that are handled by suspending kotlin functions
  *
  * @author Bryan Harclerode
  */
-class KotlinCoroutineFeature(
-    /**
-     * How long to wait for coroutines to
-     */
-    private val gracefulShutdown: Duration = Duration.ZERO,
-    private val applicationContextProvider: () -> CoroutineContext = { EmptyCoroutineContext },
-    private val requestContextProvider: () -> CoroutineContext = { EmptyCoroutineContext }
-) : Feature {
+class KotlinCoroutineFeature : Feature {
     override fun configure(context: FeatureContext): Boolean {
         // Model adjustments
         context.register(CoroutineModelProcessor::class.java)
