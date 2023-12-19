@@ -24,29 +24,34 @@
 
 package zone.dragon.dropwizard.kotlin.coroutines;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+
 import jakarta.inject.Provider;
 import jakarta.ws.rs.ProcessingException;
 import kotlin.Result;
 import kotlin.Unit;
 import kotlin.coroutines.Continuation;
 import kotlin.coroutines.CoroutineContext;
-import kotlin.coroutines.intrinsics.IntrinsicsKt;
-import kotlinx.coroutines.*;
+import kotlinx.coroutines.BuildersKt;
+import kotlinx.coroutines.CoroutineScope;
+import kotlinx.coroutines.CoroutineStart;
+import kotlinx.coroutines.Deferred;
+import kotlinx.coroutines.Dispatchers;
 import kotlinx.coroutines.slf4j.MDCContext;
 import org.glassfish.jersey.server.AsyncContext;
 import org.glassfish.jersey.server.internal.LocalizationMessages;
-import org.jetbrains.annotations.NotNull;
+import zone.dragon.dropwizard.kotlin.coroutines.scopes.RequestCoroutineScope;
 
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
-
+/**
+ * {@link InvocationHandler} that bridges the gap between Jersey and Coroutines
+ * <p/>
+ * This is written in java because it's easier to build and launch coroutines from java than it is to make
+ * compiler-generated suspension points play nice with Jersey. Most of the Kotlin APIs needed to access the raw control
+ * mechanisms used to emulate the compiler intrinsics are internal or not stable, but the intrinsics themselves are and
+ * we can just access them from Java directly.
+ */
 public class CoroutineInvocationHandler implements InvocationHandler {
-
-    /*
-     * Cache reference to sentinel object since it's constant
-     */
-    private static final Object COROUTINE_SUSPENDED = IntrinsicsKt.getCOROUTINE_SUSPENDED();
-
     /*
      * Used to forcibly convert checked exceptions to unchecked exceptions
      */
@@ -55,6 +60,9 @@ public class CoroutineInvocationHandler implements InvocationHandler {
         throw (T) t;
     }
 
+    /**
+     * Continuation which resumes the Jersey {@link AsyncContext} when called
+     */
     private static class AsyncContextContinuation implements Continuation<Object> {
 
         private final AsyncContext asyncContext;
@@ -65,15 +73,15 @@ public class CoroutineInvocationHandler implements InvocationHandler {
             this.continuation = continuation;
         }
 
-        @NotNull
         @Override
         public CoroutineContext getContext() {
             return continuation.getContext();
         }
 
         @Override
-        public void resumeWith(@NotNull Object o) {
-            System.out.println("Resuming AsyncContext");
+        public void resumeWith(Object o) {
+            // Switch dispatchers to handle blocking since asyncContext.resume will block
+            // This won't actually result in a thread switch if the handler is still running in Dispatchers.Default
             BuildersKt.<Unit>withContext(Dispatchers.getIO(), (scope, continuation) -> {
                 if (o instanceof Result.Failure) {
                     asyncContext.resume(((Result.Failure) o).exception);
@@ -85,10 +93,17 @@ public class CoroutineInvocationHandler implements InvocationHandler {
         }
     }
 
+    /**
+     * Provides the {@link CoroutineScope} which should be used to invoke this coroutine; Typically this is a
+     * {@link RequestCoroutineScope}
+     */
     private final Provider<CoroutineScope> scopeProvider;
 
+    /**
+     * Provides the {@link AsyncContext} for the current jersey request, which will be used to return the result from
+     * this coroutine
+     */
     private final Provider<AsyncContext> asyncContextProvider;
-
 
     public CoroutineInvocationHandler(Provider<CoroutineScope> scopeProvider, Provider<AsyncContext> asyncContextProvider) {
         this.scopeProvider = scopeProvider;
@@ -97,13 +112,21 @@ public class CoroutineInvocationHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        MDCContext mdcContext = new MDCContext();
         AsyncContext asyncContext = asyncContextProvider.get();
         CoroutineScope requestCoroutineScope = scopeProvider.get();
+        // Snapshot MDC here to ensure it's preserved for the coroutine and the response filters if the coroutine
+        // suspends and resumes
+        MDCContext mdcContext = new MDCContext();
 
-
+        // Start UNDISPATCHED to run as long as possible on the current request thread
+        // BuildersKt.async will handle initializing the thread context elements on the current thread without dispatching
         Deferred<Object> result = BuildersKt.async(requestCoroutineScope, mdcContext, CoroutineStart.UNDISPATCHED, (scope, continuation) -> {
             // Inject our coroutine continuation into the call arguments
+            // We don't really care about the TERMINATING_CONTINUATION from ContinuationValueParamProvider that is being
+            // overwritten here.
+            // This InvocationHandler is only returned by CoroutineInvocationHandlerProvider for coroutines, so we are
+            // guaranteed to have at least 1 parameter, which must be at the end of the argument list and accept a
+            // Continuation
             args[args.length - 1] = new AsyncContextContinuation(asyncContext, continuation);
             try {
                 return method.invoke(proxy, args);
@@ -112,15 +135,17 @@ public class CoroutineInvocationHandler implements InvocationHandler {
                 throw sneakyThrow(t);
             }
         });
-        System.out.println("Deferred: " + result);
         // Check if coroutine actually suspended
         if (result.isCompleted()) {
+            // The coroutine never actually suspended, and thus, AsyncContextContinuation was never called.
+            // Instead, synchronously grab the result, and return it like a normal Jersey handler
             return result.getCompleted();
         }
-        // It did, so suspend the context
+        // The coroutine did suspend, so suspend the Jersey context and let AsyncContextContinuation handle the resume
         if (!asyncContext.suspend()) {
             throw new ProcessingException(LocalizationMessages.ERROR_SUSPENDING_ASYNC_REQUEST());
         }
+        // Async resource handlers are supposed to be void / return null
         return null;
     }
 }

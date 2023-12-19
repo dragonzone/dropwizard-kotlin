@@ -84,7 +84,7 @@ class CoroutineModelProcessor : ModelProcessor {
         for (originalMethod in original.resourceMethods) {
             val asyncResponseType = isCoroutine(originalMethod)
             if (asyncResponseType != null) {
-                logger.debug { "Updating return type of $originalMethod to suspended type $asyncResponseType" }
+                logger.trace { "Updating return type of $originalMethod to suspended type $asyncResponseType" }
                 resourceBuilder.updateMethod(originalMethod).routingResponseType(asyncResponseType)
             }
         }

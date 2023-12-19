@@ -29,7 +29,6 @@ import jakarta.inject.Provider
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import org.glassfish.hk2.utilities.binding.AbstractBinder
-import org.glassfish.jersey.process.internal.RequestScope
 import org.glassfish.jersey.server.AsyncContext
 import org.glassfish.jersey.server.model.Invocable
 import org.glassfish.jersey.server.spi.internal.ResourceMethodInvocationHandlerProvider
@@ -49,18 +48,19 @@ class CoroutineInvocationHandlerProvider @Inject constructor(
      */
     class Binder : AbstractBinder() {
         override fun configure() {
-            bind(CoroutineInvocationHandlerProvider::class.java)
-                .to(ResourceMethodInvocationHandlerProvider::class.java)
+            bind(CoroutineInvocationHandlerProvider::class.java).to(ResourceMethodInvocationHandlerProvider::class.java)
                 .`in`(Singleton::class.java)
         }
     }
 
-    private var invocationHandler = CoroutineInvocationHandler(scope, asyncContext)
+    private val invocationHandler = CoroutineInvocationHandler(scope, asyncContext)
 
     override fun create(method: Invocable): InvocationHandler? {
         if (method.handlingMethod.kotlinFunction?.isSuspend == true) {
+            // The invocationHandler is stateless, so all invocables get the same one
             return invocationHandler
         }
+        // Not a coroutine; Fall back and let someone else handle it.
         return null
     }
 }

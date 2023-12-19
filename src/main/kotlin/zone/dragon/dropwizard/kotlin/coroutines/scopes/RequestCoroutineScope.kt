@@ -32,7 +32,6 @@ import kotlinx.coroutines.CompletionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ThreadContextElement
-import kotlinx.coroutines.runBlocking
 import mu.KLogging
 import org.glassfish.hk2.api.Factory
 import org.glassfish.hk2.utilities.binding.AbstractBinder
@@ -45,18 +44,20 @@ import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
 class RequestCoroutineScope private constructor(
-    parentContext: CoroutineContext, private val job: CompletableJob
+    /**
+     * Context for this request, without the job
+     */
+    parentContext: CoroutineContext,
+    private val job: CompletableJob
 ) : CoroutineScope by CoroutineScope(parentContext + job) {
 
     constructor(parentContext: CoroutineContext, requestContext: ScopeFactory.RequestScopeContext) : this(
         parentContext + requestContext, Job(parentContext[Job])
     ) {
-        println("Start Scope $job")
         job.invokeOnCompletion(requestContext)
     }
 
     fun complete() {
-        println("Completing scope $job")
         job.complete()
     }
 
@@ -65,7 +66,7 @@ class RequestCoroutineScope private constructor(
     }
 
     class ScopeFactory @Inject constructor(
-        @Named(ApplicationCoroutineScope.NAME) private val applicationContext: Provider<CoroutineContext>,
+        @Named(ApplicationCoroutineScope.NAME) private val applicationScope: Provider<CoroutineScope>,
         private val requestScope: RequestScope
     ) : Factory<RequestCoroutineScope> {
 
@@ -87,7 +88,7 @@ class RequestCoroutineScope private constructor(
         private val threadLocal = currentRequestContextField.get(requestScope) as ThreadLocal<RequestContext?>
 
         override fun provide(): RequestCoroutineScope {
-            return RequestCoroutineScope(applicationContext.get(), RequestScopeContext())
+            return RequestCoroutineScope(applicationScope.get().coroutineContext, RequestScopeContext())
         }
 
         override fun dispose(instance: RequestCoroutineScope) {

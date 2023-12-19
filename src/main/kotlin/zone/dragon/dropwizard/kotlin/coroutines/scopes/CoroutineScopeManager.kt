@@ -47,6 +47,9 @@ class CoroutineScopeManager @Inject constructor(
 
     companion object : KLogging()
 
+    /**
+     * Tracks the currently active application scope
+     */
     private val activeApplicationScope = AtomicReference<ServiceHandle<CoroutineScope>?>(null)
 
     override fun onEvent(event: ApplicationEvent) {
@@ -76,6 +79,9 @@ class CoroutineScopeManager @Inject constructor(
         return null
     }
 
+    /**
+     * Request Listener that creates and completes a [CoroutineScope] for each request
+     */
     private class RequestScopeListener(
         private val requestScopeProvider: Provider<RequestCoroutineScope>
     ) : RequestEventListener {

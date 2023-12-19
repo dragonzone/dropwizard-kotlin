@@ -63,26 +63,13 @@ class ApplicationCoroutineScope private constructor(context: CoroutineContext, p
         }
 
         override fun dispose(instance: ApplicationCoroutineScope) {
-            instance.job.complete()
+            instance.job.cancel("Application is shutting down")
             if (!instance.job.isCompleted) {
                 logger.info { "Waiting for coroutines to complete..." }
                 // Wait for the job to actually complete
                 runBlocking { instance.job.join() }
                 logger.info { "All coroutines completed." }
             }
-        }
-    }
-
-    /**
-     * Factory that exposes the
-     */
-    private class ContextFactory @Inject constructor(
-        @Named(NAME) private val scopeProvider: Provider<CoroutineScope>
-    ) : Factory<CoroutineContext> {
-        override fun provide(): CoroutineContext = scopeProvider.get().coroutineContext
-
-        override fun dispose(instance: CoroutineContext?) {
-            // nothing to do
         }
     }
 
@@ -97,12 +84,9 @@ class ApplicationCoroutineScope private constructor(context: CoroutineContext, p
                 .`in`(Singleton::class.java)
                 .named(NAME)
                 .ranked(-2)
-            bindFactory(ContextFactory::class.java, Singleton::class.java)
-                .to(CoroutineContext::class.java)
-                .`in`(PerLookup::class.java)
-                .named(NAME)
-                .ranked(-2)
             bind(Dispatchers.Default).to(CoroutineDispatcher::class.java).ranked(-2)
         }
     }
 }
+
+

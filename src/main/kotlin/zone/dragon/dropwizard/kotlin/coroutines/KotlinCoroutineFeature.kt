@@ -27,27 +27,36 @@ package zone.dragon.dropwizard.kotlin.coroutines
 import jakarta.ws.rs.core.Feature
 import jakarta.ws.rs.core.FeatureContext
 import zone.dragon.dropwizard.kotlin.coroutines.scopes.ApplicationCoroutineScope
-import zone.dragon.dropwizard.kotlin.coroutines.scopes.CoroutineContextFactory
 import zone.dragon.dropwizard.kotlin.coroutines.scopes.CoroutineScopeManager
 import zone.dragon.dropwizard.kotlin.coroutines.scopes.RequestCoroutineScope
+import java.time.Duration
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 
 /**
  * Jersey [Feature] that enables support for resources that are handled by suspending kotlin functions
  *
  * @author Bryan Harclerode
  */
-class KotlinCoroutineFeature : Feature {
+class KotlinCoroutineFeature(
+    /**
+     * How long to wait for coroutines to
+     */
+    private val gracefulShutdown: Duration = Duration.ZERO,
+    private val applicationContextProvider: () -> CoroutineContext = { EmptyCoroutineContext },
+    private val requestContextProvider: () -> CoroutineContext = { EmptyCoroutineContext }
+) : Feature {
     override fun configure(context: FeatureContext): Boolean {
         // Model adjustments
         context.register(CoroutineModelProcessor::class.java)
         // Application and Request Scope
         context.register(ApplicationCoroutineScope.Binder::class.java)
         context.register(RequestCoroutineScope.Binder::class.java)
-        context.register(CoroutineContextFactory.Binder::class.java)
         context.register(CoroutineScopeManager::class.java)
         // Resource Handler Invocation
         context.register(ContinuationValueParamProvider::class.java)
-        context.register(CoroutineInvocationHandlerProvider.Binder())
+        context.register(CoroutineInvocationHandlerProvider.Binder::class.java)
+
         return true
     }
 }
