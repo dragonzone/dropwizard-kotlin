@@ -27,7 +27,8 @@ package zone.dragon.dropwizard.kotlin.coroutines
 import jakarta.ws.rs.core.Feature
 import jakarta.ws.rs.core.FeatureContext
 import zone.dragon.dropwizard.kotlin.coroutines.scopes.ApplicationCoroutineScope
-import zone.dragon.dropwizard.kotlin.coroutines.scopes.CoroutineScopeManager
+import zone.dragon.dropwizard.kotlin.coroutines.scopes.ApplicationJob
+import zone.dragon.dropwizard.kotlin.coroutines.scopes.CoroutineJobManager
 import zone.dragon.dropwizard.kotlin.coroutines.scopes.RequestCoroutineScope
 
 /**
@@ -42,10 +43,12 @@ class KotlinCoroutineFeature : Feature {
         // Application and Request Scope
         context.register(ApplicationCoroutineScope.Binder::class.java)
         context.register(RequestCoroutineScope.Binder::class.java)
-        context.register(CoroutineScopeManager::class.java)
+        context.register(ApplicationJob.Binder::class.java)
+        context.register(CoroutineJobManager::class.java)
         // Resource Handler Invocation
         context.register(ContinuationValueParamProvider::class.java)
         context.register(CoroutineInvocationHandlerProvider.Binder::class.java)
+        context.register(JettyCoroutineDispatcherFactory.Binder())
 
         return true
     }

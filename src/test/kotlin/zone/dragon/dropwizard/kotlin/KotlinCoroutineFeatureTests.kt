@@ -1,9 +1,7 @@
 package zone.dragon.dropwizard.kotlin
 
 import assertk.assertThat
-import assertk.assertions.contains
 import assertk.assertions.isEqualTo
-import assertk.assertions.isNull
 import io.dropwizard.core.Application
 import io.dropwizard.core.Configuration
 import io.dropwizard.core.setup.Bootstrap
@@ -26,6 +24,7 @@ import jakarta.ws.rs.container.ContainerResponseFilter
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import kotlinx.coroutines.delay
+import mu.KLogging
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -35,7 +34,7 @@ import org.slf4j.MDC
 @ExtendWith(DropwizardExtensionsSupport::class)
 class KotlinCoroutineFeatureTests {
 
-    companion object {
+    companion object : KLogging() {
 
         private val app = DropwizardAppExtension(App::class.java, Configuration())
         private lateinit var _client: Client
@@ -70,14 +69,14 @@ class KotlinCoroutineFeatureTests {
     class RequestFilter : ContainerRequestFilter {
         override fun filter(requestContext: ContainerRequestContext) {
             MDC.put("pre-request", "some-value")
-            println("Request  Thread: ${Thread.currentThread().name}")
+            logger.info { "Request  Thread: ${Thread.currentThread().name}" }
         }
     }
 
     class ResponseFilter : ContainerResponseFilter {
         override fun filter(requestContext: ContainerRequestContext, responseContext: ContainerResponseContext) {
             MDC.getCopyOfContextMap().forEach { (key, value) -> responseContext.headers.add("mdc-$key", value) }
-            println("Response Thread: ${Thread.currentThread().name}")
+            logger.info { "Response Thread: ${Thread.currentThread().name}" }
         }
     }
 
@@ -98,7 +97,7 @@ class KotlinCoroutineFeatureTests {
         @POST
         suspend fun suspendUndispatched(entity: String): String {
 
-            println("Dispatch Thread: ${Thread.currentThread().name}")
+            logger.info { "Dispatch Thread: ${Thread.currentThread().name}" }
             return "direct $entity"
         }
 
@@ -106,10 +105,10 @@ class KotlinCoroutineFeatureTests {
         @GET
         suspend fun suspend(): String {
 
-            println("Dispatch Thread: ${Thread.currentThread().name}")
+            logger.info { "Dispatch Thread: ${Thread.currentThread().name}" }
             delay(1)
 
-            println("Resume   Thread: ${Thread.currentThread().name}")
+            logger.info { "Resume   Thread: ${Thread.currentThread().name}" }
             return "suspend"
         }
 
@@ -119,7 +118,7 @@ class KotlinCoroutineFeatureTests {
             MDC.put("handler", "value")
             delay(1)
             MDC.put("post-dispatch", "handler")
-            return "value" //MDC.get("handler")
+            return "value"
         }
 
         @Path("suspendWithEntity")
@@ -184,8 +183,8 @@ class KotlinCoroutineFeatureTests {
         assertThat(entity).isEqualTo("value")
         assertThat(response.getHeaderString("mdc-pre-request")).isEqualTo("some-value")
         // MDC updates unfortunately are not captured in the handler
-        assertThat(response.getHeaderString("mdc-handler")).isNull()
-        assertThat(response.getHeaderString("mdc-post-dispatch")).isNull()
+        assertThat(response.getHeaderString("mdc-handler")).isEqualTo("value")
+        assertThat(response.getHeaderString("mdc-post-dispatch")).isEqualTo("handler")
     }
 
     @Test

@@ -64,15 +64,13 @@ class MyResource {
 
 #### MDC
 
-Note that the while the state of the SLF4J MDC at the beginning of the handler is preserved including all changes from
-request filters, any modifications made in the request handler itself will be lost. Modifications to the MDC must happen
-in a request filter to ensure availability of the data for logs in the resource handler or response filters.
+THe SLF4J MDC should be properly preserved from the request filters through the coroutine and the response filters.
 
 #### Dispatching
 
-Resource coroutines launch initially on the original request thread, operating undispatched until the handler actually
-suspends, and will resume with the `Dispatchers.Default` dispatcher. Once the resource handler is completed, the
-`Dispatchers.IO` dispatcher is used to write the response or handle the exception from the resource handler.
+Resource coroutines are dispatched using the Jetty thread pool, providing simplified thread management for the application. This behavior
+can be overridden by binding a custom dispatcher to `CoroutineDispatcher` in Jersey/HK2, though keep in mind that it will need to be safe
+for blocking since Jersey writes responses in a blocking manner.
 
 ## Jackson Serialization
 

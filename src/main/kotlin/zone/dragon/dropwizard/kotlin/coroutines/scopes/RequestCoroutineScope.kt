@@ -24,51 +24,40 @@
 package zone.dragon.dropwizard.kotlin.coroutines.scopes
 
 import jakarta.inject.Inject
-import jakarta.inject.Named
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
-import kotlinx.coroutines.CompletableJob
 import kotlinx.coroutines.CompletionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ThreadContextElement
 import mu.KLogging
-import org.glassfish.hk2.api.Factory
 import org.glassfish.hk2.utilities.binding.AbstractBinder
 import org.glassfish.jersey.process.internal.RequestContext
 import org.glassfish.jersey.process.internal.RequestScope
 import org.glassfish.jersey.process.internal.RequestScoped
+import org.glassfish.jersey.server.ContainerRequest
 import java.lang.reflect.Field
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
+import org.glassfish.hk2.api.Factory as HK2Factory
 
 class RequestCoroutineScope private constructor(
     /**
      * Context for this request, without the job
      */
-    parentContext: CoroutineContext,
-    private val job: CompletableJob
-) : CoroutineScope by CoroutineScope(parentContext + job) {
+    parentContext: CoroutineContext, private val requestJob: Job
+) : CoroutineScope by CoroutineScope(parentContext + requestJob) {
 
-    constructor(parentContext: CoroutineContext, requestContext: ScopeFactory.RequestScopeContext) : this(
-        parentContext + requestContext, Job(parentContext[Job])
-    ) {
-        job.invokeOnCompletion(requestContext)
-    }
-
-    fun complete() {
-        job.complete()
-    }
-
-    companion object Key : KLogging(), CoroutineContext.Key<ScopeFactory.RequestScopeContext> {
+    companion object Key : KLogging(), CoroutineContext.Key<Factory.RequestScopeContextElement> {
         const val NAME = "zone.dragon.dropwizard.kotlin.REQUEST_SCOPE"
     }
 
-    class ScopeFactory @Inject constructor(
-        @Named(ApplicationCoroutineScope.NAME) private val applicationScope: Provider<CoroutineScope>,
-        private val requestScope: RequestScope
-    ) : Factory<RequestCoroutineScope> {
+    class Factory @Inject constructor(
+        private val applicationScope: ApplicationCoroutineScope,
+        private val requestScope: RequestScope,
+        private val containerRequest: Provider<ContainerRequest>
+    ) : HK2Factory<RequestCoroutineScope> {
 
         companion object {
             private val currentRequestContextField: Field
@@ -88,16 +77,20 @@ class RequestCoroutineScope private constructor(
         private val threadLocal = currentRequestContextField.get(requestScope) as ThreadLocal<RequestContext?>
 
         override fun provide(): RequestCoroutineScope {
-            return RequestCoroutineScope(applicationScope.get().coroutineContext, RequestScopeContext())
+            val requestJob = containerRequest.get().getProperty(CoroutineJobManager.REQUEST_JOB_NAME) as Job
+            val requestScopeContextElement = RequestScopeContextElement(requestJob)
+            return RequestCoroutineScope(applicationScope.coroutineContext + requestScopeContextElement, requestJob)
         }
 
-        override fun dispose(instance: RequestCoroutineScope) {
-            instance.complete()
-        }
+        override fun dispose(instance: RequestCoroutineScope) = Unit
 
-        inner class RequestScopeContext : ThreadContextElement<RequestContext?>,
-            AbstractCoroutineContextElement(Key),
-            CompletionHandler {
+        inner class RequestScopeContextElement(job: Job) : ThreadContextElement<RequestContext?>,
+                                                           AbstractCoroutineContextElement(Key),
+                                                           CompletionHandler {
+
+            init {
+                job.invokeOnCompletion(this)
+            }
 
             private val requestContext = requestScope.suspendCurrent() ?: null
             private val active = AtomicBoolean(true)
@@ -121,7 +114,7 @@ class RequestCoroutineScope private constructor(
 
     class Binder : AbstractBinder() {
         override fun configure() {
-            bindFactory(ScopeFactory::class.java, Singleton::class.java)
+            bindFactory(Factory::class.java, Singleton::class.java)
                 .to(RequestCoroutineScope::class.java)
                 .to(CoroutineScope::class.java)
                 .`in`(RequestScoped::class.java)

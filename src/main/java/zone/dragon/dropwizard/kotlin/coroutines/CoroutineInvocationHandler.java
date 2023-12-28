@@ -27,6 +27,10 @@ package zone.dragon.dropwizard.kotlin.coroutines;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 
+import org.glassfish.jersey.server.AsyncContext;
+import org.glassfish.jersey.server.internal.LocalizationMessages;
+import org.jetbrains.annotations.NotNull;
+
 import jakarta.inject.Provider;
 import jakarta.ws.rs.ProcessingException;
 import kotlin.Result;
@@ -37,21 +41,23 @@ import kotlinx.coroutines.BuildersKt;
 import kotlinx.coroutines.CoroutineScope;
 import kotlinx.coroutines.CoroutineStart;
 import kotlinx.coroutines.Deferred;
-import kotlinx.coroutines.Dispatchers;
-import kotlinx.coroutines.slf4j.MDCContext;
-import org.glassfish.jersey.server.AsyncContext;
-import org.glassfish.jersey.server.internal.LocalizationMessages;
+import zone.dragon.dropwizard.kotlin.coroutines.scopes.CoroutineMdcThreadContext;
 import zone.dragon.dropwizard.kotlin.coroutines.scopes.RequestCoroutineScope;
 
-/**
- * {@link InvocationHandler} that bridges the gap between Jersey and Coroutines
- * <p/>
+/*
  * This is written in java because it's easier to build and launch coroutines from java than it is to make
  * compiler-generated suspension points play nice with Jersey. Most of the Kotlin APIs needed to access the raw control
  * mechanisms used to emulate the compiler intrinsics are internal or not stable, but the intrinsics themselves are and
  * we can just access them from Java directly.
  */
+/**
+ * {@link InvocationHandler} that bridges the gap between Jersey and Coroutines
+ * <p />
+ * When used to invoke a method, this handler uses a {@link CoroutineScope} and {@link AsyncContext} to set up a coroutine, and then invokes
+ * the method in the context of that coroutine.
+ */
 public class CoroutineInvocationHandler implements InvocationHandler {
+
     /*
      * Used to forcibly convert checked exceptions to unchecked exceptions
      */
@@ -74,22 +80,22 @@ public class CoroutineInvocationHandler implements InvocationHandler {
         }
 
         @Override
-        public CoroutineContext getContext() {
+        public @NotNull CoroutineContext getContext() {
             return continuation.getContext();
         }
 
         @Override
-        public void resumeWith(Object o) {
-            // Switch dispatchers to handle blocking since asyncContext.resume will block
-            // This won't actually result in a thread switch if the handler is still running in Dispatchers.Default
-            BuildersKt.<Unit>withContext(Dispatchers.getIO(), (scope, continuation) -> {
+        public void resumeWith(@NotNull Object o) {
+            try {
                 if (o instanceof Result.Failure) {
                     asyncContext.resume(((Result.Failure) o).exception);
                 } else {
                     asyncContext.resume(o);
                 }
-                return Unit.INSTANCE;
-            }, continuation);
+            } catch (Throwable t) {
+                continuation.resumeWith(new Result.Failure(t));
+            }
+            continuation.resumeWith(Unit.INSTANCE);
         }
     }
 
@@ -116,7 +122,7 @@ public class CoroutineInvocationHandler implements InvocationHandler {
         CoroutineScope requestCoroutineScope = scopeProvider.get();
         // Snapshot MDC here to ensure it's preserved for the coroutine and the response filters if the coroutine
         // suspends and resumes
-        MDCContext mdcContext = new MDCContext();
+        CoroutineMdcThreadContext mdcContext = new CoroutineMdcThreadContext();
 
         // Start UNDISPATCHED to run as long as possible on the current request thread
         // BuildersKt.async will handle initializing the thread context elements on the current thread without dispatching

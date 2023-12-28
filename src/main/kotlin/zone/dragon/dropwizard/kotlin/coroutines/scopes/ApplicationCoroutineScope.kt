@@ -25,52 +25,46 @@ package zone.dragon.dropwizard.kotlin.coroutines.scopes
 
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.CompletableJob
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
-import mu.KLogging
-import org.glassfish.hk2.api.Factory
-import org.glassfish.hk2.utilities.binding.AbstractBinder
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import mu.KLogging
+import org.glassfish.hk2.utilities.binding.AbstractBinder
+import zone.dragon.dropwizard.kotlin.coroutines.JettyCoroutineDispatcherFactory
+import org.glassfish.hk2.api.Factory as HK2Factory
 
 /**
  * [CoroutineScope] for the Jersey container that supervises all request scopes and ensures they are cleaned up when
  * the Jersey container shuts down or reloads.
  *
+ * This scope uses the [ApplicationJob] to supervise all child coroutines and [JettyCoroutineDispatcherFactory] as a dispatcher
+ *
  * @author Bryan Harclerode
  */
-class ApplicationCoroutineScope private constructor(context: CoroutineContext, private val job: CompletableJob) :
-    CoroutineScope by CoroutineScope(context + job) {
+class ApplicationCoroutineScope private constructor(
+    private val dispatcher: CoroutineDispatcher, private val job: Job, parentContext: CoroutineContext = EmptyCoroutineContext
+) : CoroutineScope by CoroutineScope(parentContext + dispatcher + job) {
 
     companion object {
+        /**
+         * Name qualifier used with HK2
+         */
         const val NAME = "zone.dragon.dropwizard.kotlin.APPLICATION_SCOPE"
     }
 
-    private class ScopeFactory(private val context: CoroutineContext) : Factory<ApplicationCoroutineScope> {
-
-        @Inject
-        constructor() : this(EmptyCoroutineContext)
+    class Factory @Inject constructor(
+        private val applicationJob: ApplicationJob, private val dispatcher: CoroutineDispatcher
+    ) : HK2Factory<ApplicationCoroutineScope> {
 
         companion object : KLogging()
 
         override fun provide(): ApplicationCoroutineScope {
-            return ApplicationCoroutineScope(context, SupervisorJob())
+            return ApplicationCoroutineScope(dispatcher, applicationJob)
         }
 
-        override fun dispose(instance: ApplicationCoroutineScope) {
-            instance.job.cancel("Application is shutting down")
-            if (!instance.job.isCompleted) {
-                logger.info { "Waiting for coroutines to complete..." }
-                // Wait for the job to actually complete
-                runBlocking { instance.job.join() }
-                logger.info { "All coroutines completed." }
-            }
-        }
+        override fun dispose(instance: ApplicationCoroutineScope) = Unit
     }
 
     /**
@@ -79,12 +73,12 @@ class ApplicationCoroutineScope private constructor(context: CoroutineContext, p
     class Binder : AbstractBinder() {
         override fun configure() {
             // Using Rank -2 as a default for application scope so that the request scope can still use -1 as a default
-            bindFactory(ScopeFactory::class.java, Singleton::class.java)
+            bindFactory(Factory::class.java, Singleton::class.java)
+                .to(ApplicationCoroutineScope::class.java)
                 .to(CoroutineScope::class.java)
                 .`in`(Singleton::class.java)
                 .named(NAME)
                 .ranked(-2)
-            bind(Dispatchers.Default).to(CoroutineDispatcher::class.java).ranked(-2)
         }
     }
 }
