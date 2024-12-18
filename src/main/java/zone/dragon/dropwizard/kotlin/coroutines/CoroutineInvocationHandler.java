@@ -36,7 +36,9 @@ import jakarta.ws.rs.ProcessingException;
 import kotlin.Result;
 import kotlin.Unit;
 import kotlin.coroutines.Continuation;
+import kotlin.coroutines.ContinuationInterceptor;
 import kotlin.coroutines.CoroutineContext;
+import kotlin.coroutines.intrinsics.IntrinsicsKt;
 import kotlinx.coroutines.BuildersKt;
 import kotlinx.coroutines.CoroutineScope;
 import kotlinx.coroutines.CoroutineStart;
@@ -84,13 +86,17 @@ public class CoroutineInvocationHandler implements InvocationHandler {
             return continuation.getContext();
         }
 
+        // result can be null since it's a value type wrapping a nullable type, even though the parameter itself isn't listed as nullable
+        @SuppressWarnings("NullableProblems")
         @Override
-        public void resumeWith(@NotNull Object o) {
+        public void resumeWith(Object result) {
             try {
-                if (o instanceof Result.Failure) {
-                    asyncContext.resume(((Result.Failure) o).exception);
+                if (result instanceof Result.Failure) {
+                    asyncContext.resume(((Result.Failure) result).exception);
+                } else if (result == Unit.INSTANCE) {
+                    asyncContext.resume((Object) null);
                 } else {
-                    asyncContext.resume(o);
+                    asyncContext.resume(result);
                 }
             } catch (Throwable t) {
                 continuation.resumeWith(new Result.Failure(t));
@@ -127,15 +133,25 @@ public class CoroutineInvocationHandler implements InvocationHandler {
         // Start UNDISPATCHED to run as long as possible on the current request thread
         // BuildersKt.async will handle initializing the thread context elements on the current thread without dispatching
         Deferred<Object> result = BuildersKt.async(requestCoroutineScope, mdcContext, CoroutineStart.UNDISPATCHED, (scope, continuation) -> {
+            // TODO document & clean up! Need to intercept so that ThreadContextElements get restored if resumed on a different thread
+            CoroutineContext.Key<CoroutineContext.Element> key = (CoroutineContext.Key) ContinuationInterceptor.Key;
+            ContinuationInterceptor interceptor = (ContinuationInterceptor) continuation.getContext().get(key);
+            AsyncContextContinuation asyncContinuation = new AsyncContextContinuation(asyncContext, continuation);
+            Continuation<?> interceptedContinuation = interceptor.interceptContinuation(asyncContinuation);
             // Inject our coroutine continuation into the call arguments
             // We don't really care about the TERMINATING_CONTINUATION from ContinuationValueParamProvider that is being
             // overwritten here.
             // This InvocationHandler is only returned by CoroutineInvocationHandlerProvider for coroutines, so we are
             // guaranteed to have at least 1 parameter, which must be at the end of the argument list and accept a
             // Continuation
-            args[args.length - 1] = new AsyncContextContinuation(asyncContext, continuation);
+            args[args.length - 1] = interceptedContinuation;
             try {
-                return method.invoke(proxy, args);
+                Object coroutineResult = method.invoke(proxy, args);
+                // Release the interceptor if one was allocated and we did not suspend
+                if (coroutineResult != IntrinsicsKt.getCOROUTINE_SUSPENDED() && asyncContinuation != interceptedContinuation) {
+                    interceptor.releaseInterceptedContinuation(interceptedContinuation);
+                }
+                return coroutineResult;
             } catch (Throwable t) {
                 // Kotlin doesn't understand checked exceptions, so sneakyThrow to bypass java restrictions.
                 throw sneakyThrow(t);

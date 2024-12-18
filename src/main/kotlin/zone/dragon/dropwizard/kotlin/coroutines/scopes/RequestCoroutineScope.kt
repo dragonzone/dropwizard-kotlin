@@ -30,12 +30,10 @@ import kotlinx.coroutines.CompletionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ThreadContextElement
-import mu.KLogging
 import org.glassfish.hk2.utilities.binding.AbstractBinder
 import org.glassfish.jersey.process.internal.RequestContext
 import org.glassfish.jersey.process.internal.RequestScope
 import org.glassfish.jersey.process.internal.RequestScoped
-import org.glassfish.jersey.server.ContainerRequest
 import java.lang.reflect.Field
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.AbstractCoroutineContextElement
@@ -46,17 +44,18 @@ class RequestCoroutineScope private constructor(
     /**
      * Context for this request, without the job
      */
-    parentContext: CoroutineContext, private val requestJob: Job
+    parentContext: CoroutineContext,
+    private val requestJob: Job
 ) : CoroutineScope by CoroutineScope(parentContext + requestJob) {
 
-    companion object Key : KLogging(), CoroutineContext.Key<Factory.RequestScopeContextElement> {
+    companion object Key : CoroutineContext.Key<Factory.RequestScopeContextElement> {
         const val NAME = "zone.dragon.dropwizard.kotlin.REQUEST_SCOPE"
     }
 
     class Factory @Inject constructor(
         private val applicationScope: ApplicationCoroutineScope,
         private val requestScope: RequestScope,
-        private val containerRequest: Provider<ContainerRequest>
+        private val requestJob: Provider<Job>
     ) : HK2Factory<RequestCoroutineScope> {
 
         companion object {
@@ -77,7 +76,7 @@ class RequestCoroutineScope private constructor(
         private val threadLocal = currentRequestContextField.get(requestScope) as ThreadLocal<RequestContext?>
 
         override fun provide(): RequestCoroutineScope {
-            val requestJob = containerRequest.get().getProperty(CoroutineJobManager.REQUEST_JOB_NAME) as Job
+            val requestJob = requestJob.get()
             val requestScopeContextElement = RequestScopeContextElement(requestJob)
             return RequestCoroutineScope(applicationScope.coroutineContext + requestScopeContextElement, requestJob)
         }
@@ -112,6 +111,9 @@ class RequestCoroutineScope private constructor(
         }
     }
 
+    /**
+     * HK2 Binder that configures the [RequestCoroutineScope] and it's necessary components in Jersey
+     */
     class Binder : AbstractBinder() {
         override fun configure() {
             bindFactory(Factory::class.java, Singleton::class.java)

@@ -61,10 +61,17 @@ class ContinuationAwareParameterServiceProvider : ServerParameterService(), Para
                     // To fix this, we replace the wildcard with its concrete lower bound, such as
                     // Continuation<SomeReturnType>
                     val originalGenericType = type as ParameterizedType
-                    val newGenericType = ParameterizedTypeImpl(
-                        originalGenericType.rawType,
-                        (originalGenericType.actualTypeArguments[0] as WildcardType).lowerBounds[0]
-                    )
+                    val originalBound = originalGenericType.actualTypeArguments[0]
+
+                    val newGenericType = if (originalBound is WildcardType) {
+                        ParameterizedTypeImpl(
+                            originalGenericType.rawType,
+                            (originalGenericType.actualTypeArguments[0] as WildcardType).lowerBounds[0]
+                        )
+                    } else {
+                        originalGenericType
+                    }
+
                     // Because the parameter has no annotations, Jersey will consider it the entity parameter by default
                     // and complain that the method has multiple entity parameters or complain that methods which should
                     // not have entity parameters (such as GET) have one.

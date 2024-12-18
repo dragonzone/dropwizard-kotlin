@@ -1,13 +1,5 @@
 package zone.dragon.dropwizard.kotlin
 
-import assertk.assertThat
-import assertk.assertions.isEqualTo
-import io.dropwizard.core.Application
-import io.dropwizard.core.Configuration
-import io.dropwizard.core.setup.Bootstrap
-import io.dropwizard.core.setup.Environment
-import io.dropwizard.testing.junit5.DropwizardAppExtension
-import io.dropwizard.testing.junit5.DropwizardExtensionsSupport
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.POST
@@ -21,22 +13,42 @@ import jakarta.ws.rs.container.ContainerRequestContext
 import jakarta.ws.rs.container.ContainerRequestFilter
 import jakarta.ws.rs.container.ContainerResponseContext
 import jakarta.ws.rs.container.ContainerResponseFilter
+import jakarta.ws.rs.container.PreMatching
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import kotlin.system.measureTimeMillis
 import kotlinx.coroutines.delay
-import mu.KLogging
+import assertk.assertThat
+import assertk.assertions.isEqualTo
+import io.dropwizard.core.Application
+import io.dropwizard.core.Configuration
+import io.dropwizard.core.server.SimpleServerFactory
+import io.dropwizard.core.setup.Bootstrap
+import io.dropwizard.core.setup.Environment
+import io.dropwizard.jetty.HttpConnectorFactory
+import io.dropwizard.testing.junit5.DropwizardAppExtension
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.slf4j.MDC
 
+private val logger = KotlinLogging.logger {  }
+
 @ExtendWith(DropwizardExtensionsSupport::class)
 class KotlinCoroutineFeatureTests {
 
-    companion object : KLogging() {
+    companion object {
 
-        private val app = DropwizardAppExtension(App::class.java, Configuration())
+        private val app = DropwizardAppExtension(App::class.java, Configuration().apply {
+            val server = SimpleServerFactory()
+            (server.connector as HttpConnectorFactory).port = 0
+            server.applicationContextPath = "/"
+            serverFactory = server
+        })
         private lateinit var _client: Client
         private lateinit var client: WebTarget
 
@@ -66,6 +78,7 @@ class KotlinCoroutineFeatureTests {
         }
     }
 
+    @PreMatching
     class RequestFilter : ContainerRequestFilter {
         override fun filter(requestContext: ContainerRequestContext) {
             MDC.put("pre-request", "some-value")
@@ -103,13 +116,13 @@ class KotlinCoroutineFeatureTests {
 
         @Path("suspend")
         @GET
-        suspend fun suspend(): String {
+        suspend fun suspend(): Response {
 
             logger.info { "Dispatch Thread: ${Thread.currentThread().name}" }
             delay(1)
 
             logger.info { "Resume   Thread: ${Thread.currentThread().name}" }
-            return "suspend"
+            return Response.ok("suspend").build()
         }
 
         @Path("mdc")
@@ -126,6 +139,20 @@ class KotlinCoroutineFeatureTests {
         suspend fun suspend(entity: String): String {
             delay(1)
             return "suspend $entity"
+        }
+
+        @Path("suspendWithNull")
+        @POST
+        suspend fun suspendWithNull(entity: String): Any? {
+            delay(1)
+            return null
+        }
+
+        @Path("suspendWithUnit")
+        @POST
+        suspend fun suspendWithUnit(entity: String) {
+            delay(10)
+            return
         }
 
         @Path("exception")
@@ -229,6 +256,26 @@ class KotlinCoroutineFeatureTests {
             .post(Entity.json("value"))
             .readEntity(String::class.java)
         assertThat(response).isEqualTo("suspend value")
+    }
+
+    @Test
+    fun testSuspendWithNull() {
+        val response = client
+            .path("suspendWithNull")
+            .request()
+            .post(Entity.json("value"))
+        logger.info { response.readEntity(String::class.java) }
+        assertThat(response.status).isEqualTo(200)
+    }
+
+    @Test
+    fun testSuspendWithUnit() {
+        val response = client
+            .path("suspendWithUnit")
+            .request()
+            .post(Entity.json("value"))
+        logger.info { response.readEntity(String::class.java) }
+        assertThat(response.status).isEqualTo(200)
     }
 
     @Test

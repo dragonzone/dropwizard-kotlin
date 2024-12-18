@@ -80,7 +80,7 @@ class CoroutineMDCAdapter(private val originalProvider: MDCAdapter) : MDCAdapter
         activeAdapter.put(key, `val`)
     }
 
-    override fun get(key: String?): String {
+    override fun get(key: String?): String? {
         return activeAdapter.get(key)
     }
 
@@ -92,7 +92,7 @@ class CoroutineMDCAdapter(private val originalProvider: MDCAdapter) : MDCAdapter
         activeAdapter.clear()
     }
 
-    override fun getCopyOfContextMap(): MutableMap<String, String> {
+    override fun getCopyOfContextMap(): MutableMap<String, String>? {
         return activeAdapter.copyOfContextMap
     }
 
@@ -104,11 +104,11 @@ class CoroutineMDCAdapter(private val originalProvider: MDCAdapter) : MDCAdapter
         activeAdapter.pushByKey(key, value)
     }
 
-    override fun popByKey(key: String?): String {
+    override fun popByKey(key: String?): String? {
         return activeAdapter.popByKey(key)
     }
 
-    override fun getCopyOfDequeByKey(key: String?): Deque<String> {
+    override fun getCopyOfDequeByKey(key: String?): Deque<String>? {
         return activeAdapter.getCopyOfDequeByKey(key)
     }
 

@@ -45,11 +45,11 @@ import org.slf4j.spi.MDCAdapter
  */
 @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
 class CoroutineMdcThreadContext(
-    context: Map<String, String>, deques: Map<String, Deque<String>>
+    context: Map<String, String>?, deques: Map<String, Deque<String>>?
 ) : AbstractCoroutineContextElement(Key), CopyableThreadContextElement<AutoCloseable>, MDCAdapter {
 
-    private val context = HashMap(context)
-    private val deques = deques.mapValues { LinkedList(it.value) }.toMutableMap()
+    private val context = context?.let(::HashMap) ?: mutableMapOf()
+    private val deques = deques?.mapValues { LinkedList(it.value) }?.toMutableMap() ?: mutableMapOf()
 
     constructor() : this(MDC.getCopyOfContextMap(), emptyMap())
 

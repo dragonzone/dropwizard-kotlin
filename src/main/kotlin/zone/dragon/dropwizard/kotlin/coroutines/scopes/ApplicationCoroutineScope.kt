@@ -30,7 +30,6 @@ import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import mu.KLogging
 import org.glassfish.hk2.utilities.binding.AbstractBinder
 import zone.dragon.dropwizard.kotlin.coroutines.JettyCoroutineDispatcherFactory
 import org.glassfish.hk2.api.Factory as HK2Factory
@@ -57,8 +56,6 @@ class ApplicationCoroutineScope private constructor(
     class Factory @Inject constructor(
         private val applicationJob: ApplicationJob, private val dispatcher: CoroutineDispatcher
     ) : HK2Factory<ApplicationCoroutineScope> {
-
-        companion object : KLogging()
 
         override fun provide(): ApplicationCoroutineScope {
             return ApplicationCoroutineScope(dispatcher, applicationJob)

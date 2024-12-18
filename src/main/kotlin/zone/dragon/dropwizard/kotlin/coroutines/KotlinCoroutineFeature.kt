@@ -28,8 +28,8 @@ import jakarta.ws.rs.core.Feature
 import jakarta.ws.rs.core.FeatureContext
 import zone.dragon.dropwizard.kotlin.coroutines.scopes.ApplicationCoroutineScope
 import zone.dragon.dropwizard.kotlin.coroutines.scopes.ApplicationJob
-import zone.dragon.dropwizard.kotlin.coroutines.scopes.CoroutineJobManager
 import zone.dragon.dropwizard.kotlin.coroutines.scopes.RequestCoroutineScope
+import zone.dragon.dropwizard.kotlin.coroutines.scopes.RequestJob
 
 /**
  * Jersey [Feature] that enables support for resources that are handled by suspending kotlin functions
@@ -44,7 +44,7 @@ class KotlinCoroutineFeature : Feature {
         context.register(ApplicationCoroutineScope.Binder::class.java)
         context.register(RequestCoroutineScope.Binder::class.java)
         context.register(ApplicationJob.Binder::class.java)
-        context.register(CoroutineJobManager::class.java)
+        context.register(RequestJob.Binder::class.java)
         // Resource Handler Invocation
         context.register(ContinuationValueParamProvider::class.java)
         context.register(CoroutineInvocationHandlerProvider.Binder::class.java)

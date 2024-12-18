@@ -26,7 +26,6 @@ package zone.dragon.dropwizard.kotlin.coroutines
 
 import jakarta.inject.Singleton
 import jakarta.ws.rs.core.Configuration
-import mu.KLogging
 import org.glassfish.jersey.server.model.ModelProcessor
 import org.glassfish.jersey.server.model.Resource
 import org.glassfish.jersey.server.model.ResourceMethod
@@ -34,6 +33,9 @@ import org.glassfish.jersey.server.model.ResourceModel
 import java.lang.reflect.Type
 import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.kotlinFunction
+import io.github.oshai.kotlinlogging.KotlinLogging
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * Model Processor to alter resource methods handled by suspending kotlin functions to have the correct response type
@@ -43,8 +45,6 @@ import kotlin.reflect.jvm.kotlinFunction
  */
 @Singleton
 class CoroutineModelProcessor : ModelProcessor {
-
-    companion object : KLogging()
 
     private fun processModel(originalModel: ResourceModel, subresource: Boolean): ResourceModel {
         val modelBuilder = ResourceModel.Builder(subresource)

@@ -30,9 +30,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
-import mu.KLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.glassfish.hk2.utilities.binding.AbstractBinder
 import org.glassfish.hk2.api.Factory as HK2Factory
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * [Job] representing a Jersey Application
@@ -42,8 +44,6 @@ import org.glassfish.hk2.api.Factory as HK2Factory
  * @author Bryan Harclerode
  */
 class ApplicationJob private constructor(private val job: CompletableJob) : Job by job {
-
-    companion object : KLogging()
 
     constructor() : this(SupervisorJob())
 
@@ -75,7 +75,11 @@ class ApplicationJob private constructor(private val job: CompletableJob) : Job 
      */
     class Binder : AbstractBinder() {
         override fun configure() {
-            bindFactory(Factory::class.java, Singleton::class.java).to(ApplicationJob::class.java).`in`(Singleton::class.java)
+            bindFactory(Factory::class.java, Singleton::class.java)
+                .to(ApplicationJob::class.java)
+                .to(Job::class.java)
+                .`in`(Singleton::class.java)
+                .ranked(-2)
         }
     }
 }

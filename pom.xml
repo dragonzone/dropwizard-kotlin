@@ -7,7 +7,7 @@
     <parent>
         <groupId>zone.dragon</groupId>
         <artifactId>base-dropwizard-4x-pom</artifactId>
-        <version>5.0.10</version>
+        <version>5.0.13</version>
     </parent>
 
     <groupId>zone.dragon.dropwizard</groupId>
@@ -35,7 +35,7 @@
     </licenses>
 
     <properties>
-        <kotlin.release>1.6</kotlin.release>
+        <kotlin.release>1.9</kotlin.release>
     </properties>
 
     <dependencies>
@@ -62,6 +62,11 @@
         <dependency>
             <groupId>io.dropwizard</groupId>
             <artifactId>dropwizard-jersey</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.dropwizard</groupId>
+            <artifactId>dropwizard-jetty</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>jakarta.inject</groupId>
@@ -104,7 +109,7 @@
             <artifactId>slf4j-api</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.github.microutils</groupId>
+            <groupId>io.github.oshai</groupId>
             <artifactId>kotlin-logging-jvm</artifactId>
         </dependency>
 
@@ -160,8 +165,8 @@
                 <artifactId>dokka-maven-plugin</artifactId>
                 <configuration>
                     <sourceDirectories>
-                        <dir>${build.sourceDirectory}</dir>
-                        <dir>${basedir}/src/main/kotlin</dir>
+                        <dir>${project.build.sourceDirectory}</dir>
+                        <dir>${project.basedir}/src/main/kotlin</dir>
                     </sourceDirectories>
                 </configuration>
                 <executions>
