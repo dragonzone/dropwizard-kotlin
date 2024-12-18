@@ -12,7 +12,7 @@
 
     <groupId>zone.dragon.dropwizard</groupId>
     <artifactId>dropwizard-kotlin</artifactId>
-    <version>1.2.${revision}</version>
+    <version>1.0.${revision}</version>
 
     <name>Dropwizard :: Kotlin Support</name>
     <description>
